@@ -22,3 +22,4 @@ def login():
 def player_signup():
     return Players.signup()  
 # Call static method
+

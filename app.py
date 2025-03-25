@@ -1,6 +1,6 @@
 import socket
 import threading
-from flask import Flask, request, render_template, session, redirect, jsonify, make_response
+from flask import Flask, request, render_template, session, redirect, jsonify, make_response, url_for
 from functools import wraps
 from flask_socketio import SocketIO
 from user.routes import user_bp  
@@ -12,29 +12,101 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+from authlib.integrations.flask_client import OAuth
+from google_auth_oauthlib.flow import Flow
+from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 import io
+import json
 from datetime import datetime
-
+from flask_socketio import SocketIO, emit
+import queue
+import json
 app = Flask(__name__)
-app.secret_key = "your-secure-secret-key"
+app.secret_key = "7a396704-83f5-4598-8a7c-32e4bd58c676"
+app.config['SESSION_PERMANENT'] = False  # Ensure session expires on browser close
 app.register_blueprint(user_bp, url_prefix='/api')
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 SERVER_IP = "raspberrypi"  # Change this to match your setup
 PORT = 5000
+appConf = {
+    "OAUTH2_CLIENT_ID": "460933508714-j510gtuclfdfe9p5epfscc27aedn5jhh.apps.googleusercontent.com",
+    "OAUTH2_CLIENT_SECRET": "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",
+    "OAUTH2_META_URL": "https://accounts.google.com/.well-known/openid-configuration",
+    "FLASK_SECRET": "99c1e4b0-3c0c-42bd-9e00-3420826a80c3",
+    "FLASK_PORT": 5000
+}
 
+oauth = OAuth(app)
+# list of google scopes - https://developers.google.com/identity/protocols/oauth2/scopes
+google = oauth.register(
+    "google",
+    client_id=appConf.get("OAUTH2_CLIENT_ID"),
+    client_secret=appConf.get("OAUTH2_CLIENT_SECRET"),
+    client_kwargs={
+        "scope": "openid profile email"
+    },
+    server_metadata_url=f'{appConf.get("OAUTH2_META_URL")}',
+)
+
+
+winner_queue = queue.Queue()
 
 # Google Drive API Setup
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive.readonly"]
-SERVICE_ACCOUNT_FILE = r"Thesis\eternal-tempest-451603-c6-d5bbb3c231f7.json"
+CLIENT_SECRETS_FILE = 'client_secret.json'
 ROOT_FOLDER_ID = "1NndBdfWTZl4ZMjGZWWb1UjgeVijl986v"
 ARCHIVE_FOLDER_ID = "1GM5-ZA57QPylEhcMexwhhVmdd2g09ZRX"
 
-creds = service_account.Credentials.from_service_account_file(
-    SERVICE_ACCOUNT_FILE, scopes=SCOPES
-)
-service = build("drive", "v3", credentials=creds)
 
+flow = Flow.from_client_secrets_file(
+    CLIENT_SECRETS_FILE,
+    scopes=SCOPES,
+    redirect_uri='http://localhost:5000/callback'
+)
+
+def get_drive_service():
+    """Authenticate using OAuth 2.0 and return the Google Drive service."""
+    creds = None
+    
+    # Check if token.json exists
+    if os.path.exists('token.json'):
+        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+
+    # If no valid credentials, start OAuth flow
+    if not creds or not creds.valid:
+        if creds and creds.expired and creds.refresh_token:
+            print("🔄 Refreshing expired credentials.")
+            creds.refresh(Request())
+        else:
+            print("🌐 Starting OAuth flow for new authentication.")
+            flow = Flow.from_client_secrets_file(
+                CLIENT_SECRETS_FILE,
+                scopes=SCOPES,
+                redirect_uri='http://localhost:5000/callback'
+            )
+            auth_url, _ = flow.authorization_url(prompt='consent')
+            print(f"🔎 Go to this URL and authorize access: {auth_url}")
+
+            code = input("Enter the authorization code: ").strip()
+            flow.fetch_token(code=code)
+            creds = flow.credentials
+
+            # Save credentials for future use
+            with open('token.json', 'w') as token_file:
+                token_file.write(creds.to_json())
+            print("✅ Credentials saved to token.json")
+
+    try:
+        from googleapiclient.discovery import build
+        service = build('drive', 'v3', credentials=creds)
+        print("✅ Google Drive service initialized successfully.")
+        return service
+    except Exception as e:
+        print(f"❌ Error initializing Google Drive service: {e}")
+        return None
+    
 def receive_rfid_data():
     """Function to receive RFID data from the server and send it to the frontend."""
     try:
@@ -58,6 +130,7 @@ def receive_rfid_data():
 def create_drive_folder(folder_name, parent_folder_id):
     """Creates a new folder in Google Drive inside the specified parent folder."""
     try:
+        service = get_drive_service()
         file_metadata = {
             "name": folder_name,
             "mimeType": "application/vnd.google-apps.folder",
@@ -73,6 +146,7 @@ def create_drive_folder(folder_name, parent_folder_id):
 def move_drive_folder(folder_id, new_parent_id):
     """Moves an entire folder (including its contents) to a new parent folder in Google Drive."""
     try:
+        service = get_drive_service()
         file_info = service.files().get(fileId=folder_id, fields="parents").execute()
         old_parents = ",".join(file_info.get("parents", []))
 
@@ -141,6 +215,7 @@ def generate_pdf(players):
     return buffer
 
 def upload_to_drive(file_stream, filename, parent_folder_id):
+    service = get_drive_service()
     """Upload the PDF file to Google Drive."""
     from googleapiclient.http import MediaIoBaseUpload
 
@@ -158,6 +233,21 @@ def upload_to_drive(file_stream, filename, parent_folder_id):
 
     return uploaded_file.get("id"), uploaded_file.get("webViewLink")
 
+@app.route("/api/winners/save", methods=["POST"])
+def save_game():
+    try:
+        data = request.json
+        game_number = data.get("game")
+        players = data.get("players", [])
+
+        # Save both players to the database
+        for player in players:
+            player["timestamp"] = datetime.now()
+            db.status.insert_one(player)
+
+        return jsonify({"message": "Game results saved successfully!"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/archiveRecords", methods=["POST"])
 def archive_records():
@@ -167,6 +257,7 @@ def archive_records():
     records_folder_name = f"Records_{today_date}"
 
     try:
+        service = get_drive_service()
         # Step 1: Create archive folder in Google Drive
         records_archive_folder_id = create_drive_folder(records_folder_name, ARCHIVE_FOLDER_ID)
 
@@ -211,6 +302,138 @@ def get_player(rfid):
         return jsonify(player)
     return jsonify(None)
 
+@socketio.on("game_state")
+def update_game_state(data):
+    print("Game state updated:", data)  # ✅ Debugging print
+    emit("game_state", data, broadcast=True)  # ✅ Broadcast to all clients
+
+@socketio.on("start_game")
+def handle_start_game(data):
+    print("Broadcasting start_game event:", data)  # Debugging
+    emit("start_game", data, broadcast=True)
+    
+@socketio.on("update_score")
+def handle_update_score(data):
+    print("Received updated score:", data)  # Debugging
+    emit("update_score", data, broadcast=True)
+
+
+
+
+### --- 🔥 SINGLE CONNECTION HANDLER --- ###
+def rfid_and_winner_handler():
+    """Single connection for RFID receiving & winner data sending."""
+    while True:
+        try:
+            with socket.create_connection((SERVER_IP, PORT)) as client_socket:
+                print(f"[CONNECTED] Unified Connection to {SERVER_IP}:{PORT}")
+
+                # Start RFID listener in a separate thread using the same socket
+                rfid_thread = threading.Thread(target=receive_rfid_data, args=(client_socket,), daemon=True)
+                rfid_thread.start()
+
+                while True:
+                    # Check for new winner data
+                    if not winner_queue.empty():
+                        data = winner_queue.get()
+                        if data is None:
+                            break  # Stop if needed
+
+                        json_data = json.dumps(data)
+                        print(f"[DEBUG] Sending Winner Data: {json_data}")
+                        client_socket.sendall(json_data.encode("utf-8"))
+
+                        # Wait for optional response
+                        response = client_socket.recv(1024).decode("utf-8").strip()
+                        print(f"[SERVER RESPONSE] {response}")
+
+                        winner_queue.task_done()
+
+        except (socket.error, ConnectionRefusedError):
+            print("[ERROR] Connection lost. Retrying in 5 seconds...")
+            
+
+
+### --- 🔥 RECEIVE RFID DATA FROM THE SAME CONNECTION --- ###
+def receive_rfid_data(client_socket):
+    """Read RFID data from the server using the same connection."""
+    try:
+        while True:
+            data = client_socket.recv(1024).decode().strip()
+            if not data:
+                break  # Assume server disconnected
+
+            print(f"[RFID] {data}")
+            socketio.emit("rfid_data", {"rfid": data})
+
+    except (socket.error, ConnectionResetError):
+        print("[ERROR] RFID receiving stopped.")
+
+
+
+### --- 🔥 SOCKET EVENT HANDLING --- ###
+@socketio.on("winner_displayed", namespace="/")
+def handle_winner_display(data):
+    print(f"[SOCKET EVENT] Winner announced: {data}")
+
+    # Broadcast to all connected clients
+    emit("winner_displayed", data, broadcast=True)
+
+    # Queue the winner data to be sent
+    winner = data.get("winner")
+    winner_data = data.get("winnerData", {})
+    send_winner_data(winner, winner_data)
+
+
+def send_winner_data(winner, winner_data=None):
+    """Queue winner data for background processing."""
+    data = {"winner": winner}
+    if winner_data:
+        data["winnerData"] = winner_data
+
+    print(f"[DEBUG] Queuing Winner Data: {data}")
+    winner_queue.put(data)  # Add data to the queue
+
+### --- 🔥 SOCKET EVENT HANDLING --- ###
+@socketio.on("winner_displayed", namespace="/")
+def handle_winner_display(data):
+    print(f"[SOCKET EVENT] Winner announced: {data}")
+
+    # Broadcast to all connected clients
+    emit("winner_displayed", data, broadcast=True)
+
+    # Queue the winner data to be sent
+    winner = data.get("winner")
+    winner_data = data.get("winnerData", {})
+    send_winner_data(winner, winner_data)
+
+
+def send_winner_data(winner, winner_data=None):
+    """Queue winner data for background processing."""
+    data = {"winner": winner}
+    if winner_data:
+        data["winnerData"] = winner_data
+
+    print(f"[DEBUG] Queuing winner data: {data}")
+    winner_queue.put(data)  # Add data to the queue
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 @app.route("/api/players/clear", methods=["DELETE"])
 def clear_players():
     """Remove all players after archiving."""
@@ -221,9 +444,14 @@ def clear_players():
         return jsonify({"error": str(e)}), 500
 
 
+
+
+
 def get_files(folder_id=ROOT_FOLDER_ID):
     """Fetch files from Google Drive folder."""
+    
     try:
+        service = get_drive_service()
         query = f"'{folder_id}' in parents and trashed = false"
         results = service.files().list(q=query, fields="files(id, name, mimeType, webViewLink)").execute()
         files = results.get("files", [])
@@ -243,6 +471,7 @@ def get_files(folder_id=ROOT_FOLDER_ID):
 def login_required(f):
     @wraps(f)
     def wrap(*args, **kwargs):
+        session.permanent = False  # Ensure session is non-permanent per request
         if 'logged_in' in session:
             return f(*args, **kwargs)
         else:
@@ -253,11 +482,16 @@ def login_required(f):
 # Routes
 @app.route('/')
 def home():
+    if session.get('logged_in'):
+        return redirect('/api/admin')  # Redirect to admin if logged in
     return render_template('home.html')
 
 @app.route('/login')
 def log():
+    if session.get('logged_in'):
+        return redirect('/api/admin')  # Redirect if logged in
     return render_template('log.html')
+
 
 @app.route('/registration')
 def reg():
@@ -316,7 +550,113 @@ def folder_contents(folder_id):
         print(f"❌ Error fetching files: {e}")  # Debugging output
         return jsonify({"error": str(e)}), 500
 
+#google login
+
+@app.route("/login/google")
+def googleLogin():
+    try:
+        redirect_uri = url_for('authorize_google', _external=True)
+        return google.authorize_redirect(redirect_uri)
+    except Exception as e:
+        app.logger.error(f"Error During Login: {str(e)}")
+        return "Error occurred during login", 500
+
+
+ALLOWED_EMAILS = {'candovince94@gmail.com', 'example2@gmail.com'}
+
+@app.route("/authorize/google")
+def authorize_google():
+    try:
+        token = google.authorize_access_token()
+        userinfo_endpoint = google.server_metadata['userinfo_endpoint']
+        resp = google.get(userinfo_endpoint)
+        user_info = resp.json()
+        username = user_info['email']
+
+        if not db.authorized.find_one({'email': username}):
+            return "Access Denied. Your email is not authorized.", 403
+
+        session['username'] = username
+        session['oauth_token'] = token
+        session['logged_in'] = True
+        return redirect(url_for('admin'))
+    except Exception as e:
+        app.logger.error(f"Error in Authorization: {str(e)}")
+        return "Authorization failed.", 500
+
+
+@app.route('/add/registration')
+def registration():
+    return render_template('practice.html')
+
+@app.route('/add/email', methods=['POST'])
+def add_email():
+    email = request.form['email']
+    if db.authorized.find_one({'email': email}):
+        return "Email already exists. Please use another."
+    db.authorized.insert_one({'email': email})
+    return "Email submitted successfully!"
+
+
+@app.route("/login/dev")
+def googleDev():
+    try:
+        redirect_uri = url_for('authorize_dev', _external=True)
+        return google.authorize_redirect(redirect_uri)
+    except Exception as e:
+        app.logger.error(f"Error During Dev Login: {str(e)}")
+        return "Error occurred during login", 500
+
+
+# Separate allowed emails for dev
+ALLOWED_DEV_EMAILS = {'candovince0908@gmail.com', 'example2@gmail.com'}
+
+@app.route("/authorize/dev")
+def authorize_dev():
+    try:
+        token = google.authorize_access_token()
+        userinfo_endpoint = google.server_metadata['userinfo_endpoint']
+        resp = google.get(userinfo_endpoint)
+        user_info = resp.json()
+        username = user_info['email']
+
+        if not db.emails.find_one({'email': username}):
+            return "Access Denied. Your email is not authorized.", 403
+
+        session['username'] = username
+        session['oauth_token'] = token
+        return redirect(url_for('registration'))
+    except Exception as e:
+        app.logger.error(f"Error in Dev Authorization: {str(e)}")
+        return "Authorization failed.", 500
+
+@app.route('/callback')
+def callback():
+    try:
+        flow.fetch_token(authorization_response=request.url)
+        credentials = flow.credentials
+        session['credentials'] = credentials_to_dict(credentials)
+
+        return redirect(url_for('index'))  # or wherever you want to redirect
+    except Exception as e:
+        print(f"❌ Error during callback: {e}")
+        return "Authorization failed.", 500
+
+def credentials_to_dict(credentials):
+    return {
+        'token': credentials.token,
+        'refresh_token': credentials.refresh_token,
+        'token_uri': credentials.token_uri,
+        'client_id': credentials.client_id,
+        'client_secret': credentials.client_secret,
+        'scopes': credentials.scopes
+    }
+
+
 
 if __name__ == '__main__':
-    threading.Thread(target=receive_rfid_data, daemon=True).start()  # Start RFID receiving in a separate thread
+     # Prevent double execution caused by Flask's debug mode reloader
+    if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
+        connection_thread = threading.Thread(target=rfid_and_winner_handler, name="UnifiedHandler", daemon=True)
+        connection_thread.start()
     socketio.run(app, debug=True, allow_unsafe_werkzeug=True)
