@@ -1,0 +1,39 @@
+[{
+  "_id": "dc1e37a8c1d749048609d34e2df84aff",
+  "firstname": "francis",
+  "middlename": "erick",
+  "lastname": "datu",
+  "birthdate": "2025-01-30",
+  "age": "99",
+  "belt": "black",
+  "gym": "shigatsu wariors",
+  "role": "admin",
+  "username": "OppaiDestroyer",
+  "password": "scrypt:32768:8:1$fE2mFoN7TTl8IdMU$6ea914c3952db357fe3a0f6c04defcec2f72b039645df40a49d967ab46bde9e8466e3520b6e76ae14382ac68801f9039af3d6170ab672d4fffe975ca832f6d2f"
+},
+{
+  "_id": "77e7de9346a348539f33afd278ec98d9",
+  "firstname": "francis",
+  "middlename": "erick",
+  "lastname": "asd",
+  "birthdate": "2025-02-05",
+  "age": "12",
+  "belt": "purple",
+  "gym": "12",
+  "role": "student",
+  "username": "12",
+  "password": "scrypt:32768:8:1$AQMtzdzhVeuuzKAC$e83c33bcec5cc739ca297d9fc037c50188cdad0babefcd47221509e9e2b6de01daf5683c1ca2036b83f6978a06e5509bd9e5fbe6fc18cf85b339c2d3872f7b54"
+},
+{
+  "_id": "70c16311abe647ffb99b7680c6e9cec8",
+  "firstname": "12",
+  "middlename": "21",
+  "lastname": "12",
+  "birthdate": "2025-02-04",
+  "age": "12",
+  "belt": "purple",
+  "gym": "12",
+  "role": "coach",
+  "username": "21",
+  "password": "scrypt:32768:8:1$S2etVKq3krdDk0Ia$5c8711084358c65a89bc015671bc90733249d850fdefa3c952fc5b8ba8f35674d41a3ff20730e22fb3293114137b01a37271526a67dad662d83abfebcd5617e8"
+}]

@@ -22,19 +22,33 @@
   <body>
     <nav class="nav_container">
       <div class="nav__logo_container">
-        <a href="#" class="nav__logo"
-          ><img src="../static/assets/images/icon.png" alt="logo"
-        /></a>
+        <a href="#" class="nav__logo">
+          <img src="../static/assets/images/icon.png" alt="logo" />
+        </a>
       </div>
-      <div class="menuToggle__wrapper">
-        <div class="menu-toggle_container">
-          <button class="menu-toggle" id="menu-toggle">
-            <i class="ri-menu-line"></i>
-          </button>
-        </div>
-      </div>
-      <div class="">
-        <ul class="nav__list">
+      <ul class="nav__list">
+        <li class="nav_item"><a href="#home" class="nav__links">Home</a></li>
+        <li class="nav_item">
+          <a href="#program" class="nav__links">Program</a>
+        </li>
+        <li class="nav_item">
+          <a href="#service" class="nav__links">Service</a>
+        </li>
+        <li class="nav_item"><a href="#about" class="nav__links">About</a></li>
+        <li class="nav_item">
+          <a href="#community" class="nav__links">Community</a>
+        </li>
+      </ul>
+      <a href="{{ url_for('reg') }}" class="btn nav__join">Join Now</a>
+      <i class="ri-menu-line nav__burger" id="menu-toggle"></i>
+    </nav>
+
+    <div class="menu__window">
+      <div class="menuWindow-items">
+        <button class="close-menu" id="close-menu">
+          <i class="ri-close-large-line"></i>
+        </button>
+        <ul class="nav__list_menu">
           <li class="nav_item"><a href="#home" class="nav__links">Home</a></li>
           <li class="nav_item">
             <a href="#program" class="nav__links">Program</a>
@@ -49,19 +63,6 @@
             <a href="#community" class="nav__links">Community</a>
           </li>
         </ul>
-      </div>
-      <a class="btn" href="{{ url_for('reg') }}">Join Now</a>
-    </nav>
-
-    <div class="menu__window">
-      <div class="menuWindow-items">
-        <button class="close-menu" id="close-menu">
-          <i class="ri-close-large-line"></i>
-        </button>
-        <a href="#">Home</a>
-        <a href="#">About</a>
-        <a href="#">Contact</a>
-        <a href="#" class="join-now">Join Now</a>
       </div>
     </div>
 
@@ -308,6 +309,23 @@
         backToTopBtn.addEventListener("click", (event) => {
           event.preventDefault();
           window.scrollTo({ top: 0, behavior: "smooth" });
+        });
+      });
+    </script>
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        const menuToggle = document.getElementById("menu-toggle");
+        const menuWindow = document.querySelector(".menu__window");
+        const closeMenu = document.getElementById("close-menu");
+
+        // Open menu
+        menuToggle.addEventListener("click", function () {
+          menuWindow.classList.add("active");
+        });
+
+        // Close menu
+        closeMenu.addEventListener("click", function () {
+          menuWindow.classList.remove("active");
         });
       });
     </script>
