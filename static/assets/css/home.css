@@ -537,6 +537,10 @@ nav {
   color: var(--text-light);
 }
 
+.footer__col a:hover {
+  color: var(--secondary-color);
+}
+
 .footer__socials {
   display: flex;
   align-items: center;
@@ -850,8 +854,13 @@ nav {
 
 /* Styles for smaller screens (max-width: 900px) */
 @media (max-width: 900px) {
+  nav {
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+  }
   .nav_container {
-    background-color: yellowgreen;
+    background-color: var(--primary-color-light);
   }
   .nav__list {
     display: none; /* Hide the nav list */
@@ -1087,11 +1096,28 @@ nav {
     bottom: 15px;
     right: 15px;
   }
+
+  .section__container {
+    padding-top: 20%;
+  }
   .footer__container {
     grid-template-columns: 250px repeat(3, 10fr);
   }
   .withLogo {
     padding: 0rem;
+  }
+
+  .header__container::before {
+    content: "MASTERY";
+    position: absolute;
+    bottom: 5rem;
+    right: 10rem;
+    font-size: 10rem;
+    font-weight: 700;
+    line-height: 11rem;
+    color: var(--white);
+    opacity: 0.05;
+    z-index: -1;
   }
 }
 
@@ -1124,6 +1150,9 @@ nav {
 } */
 
 @media (width < 600px) {
+  .header__container {
+    padding-top: 30%;
+  }
   .explore__header {
     flex-direction: column;
   }
@@ -1135,17 +1164,21 @@ nav {
   .class__container {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    /* align-items: center;
+    justify-content: center; */
+  }
+
+  .class__image {
+    min-height: 300px;
   }
 
   .class__image-1 {
-    height: 25px;
-    width: 25px;
+    height: 250px;
+    width: 250px;
   }
   .class__image-2 {
-    height: 25px;
-    width: 25px;
+    height: 250px;
+    width: 250px;
   }
   .join__container {
     margin-bottom: 15rem;
@@ -1192,5 +1225,131 @@ nav {
 
   .bg__blur {
     display: none;
+  }
+}
+
+@media (width < 426px) {
+  .header__container::before {
+    font-size: 4rem;
+  }
+
+  .section__container {
+    padding-inline: 2rem;
+  }
+
+  .header__content h1 {
+    font-size: 2.5rem;
+    line-height: 3.5rem;
+  }
+
+  .explore__grid {
+    margin-top: 1rem;
+  }
+
+  .explore__card {
+    padding: 0.5rem;
+  }
+
+  .btn {
+    padding: 0.8rem 1.5rem;
+    font-size: 0.9rem;
+  }
+
+  nav {
+    padding: 1rem 2rem;
+  }
+
+  .header__image img {
+    max-width: 250px;
+  }
+
+  .header__image::before {
+    left: 45%;
+    font-size: 35rem;
+    line-height: 28rem;
+  }
+
+  .header__container::before {
+    bottom: 3rem;
+    right: 4rem;
+    font-size: 6rem;
+    font-weight: 700;
+    line-height: 11rem;
+  }
+
+  /* .class__content{
+    text-align:justify
+  }
+  */
+  .section__subheader {
+    text-align: left;
+  }
+
+  .join__grid {
+    gap: 0;
+  }
+
+  .footer__container {
+    font-size: 0.9rem;
+    gap: 1rem;
+  }
+
+  .footer__col {
+    gap: 0.5rem;
+  }
+
+  .footer__col h4 {
+    margin-bottom: 1rem;
+  }
+
+  .footer__logo {
+    max-width: 90px;
+  }
+}
+
+@media (width < 376px) {
+  .header__container {
+    padding-top: 30%;
+  }
+  .header__container::before {
+    font-size: 5rem;
+  }
+
+  .section__header {
+    font-size: 1.9rem;
+  }
+
+  .explore__card h4 {
+    font-size: 1rem;
+  }
+  .explore__card p {
+    font-size: 0.9rem;
+  }
+}
+
+@media (width < 321px) {
+  .header__container {
+    padding-top: 35%;
+  }
+
+  .header__image img {
+    max-width: 200px;
+  }
+
+  .header__image::before {
+    left: 45%;
+    font-size: 27rem;
+    line-height: 25rem;
+  }
+  .header__container::before {
+    font-size: 4.5rem;
+    line-height: 9.5rem;
+  }
+  .class__content {
+    text-align: justify;
+  }
+
+  .footer__container {
+    padding-bottom: 0;
   }
 }
