@@ -862,6 +862,9 @@ nav {
   .nav_container {
     background-color: var(--primary-color-light);
   }
+  .header__container {
+    padding-top: 25%;
+  }
   .nav__list {
     display: none; /* Hide the nav list */
   }
