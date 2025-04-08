@@ -208,6 +208,7 @@ h1 {
   padding: 20px;
   background-color: var(--primary-color);
   border-radius: 10px;
+  min-width: 20px;
 }
 
 .dashboard-content h2 {
@@ -342,6 +343,7 @@ h1 {
 
 .history-content {
   padding: 20px;
+  min-width: 600px;
   background-color: var(--primary-color);
   font-family: Arial, sans-serif;
   border-radius: 10px;
@@ -420,6 +422,7 @@ h1 {
   font-family: Arial, sans-serif;
   height: 77vh;
   max-width: 100%;
+  min-width: 250px;
   background-color: var(--primary-color);
   padding: 20px;
   border-radius: 10px;
@@ -523,13 +526,16 @@ h1 {
 }
 .scoreboard-button {
   display: flex;
+  flex-direction: row;
+  flex: 1;
+  flex-wrap: wrap;
   justify-content: center;
   margin-top: 20px;
+  gap: 10px;
 }
 
 .scoreboard-button button {
   padding: 10px 20px;
-  margin: 0 10px;
   background-color: var(--secondary-color-dark);
   color: var(--white);
   border: none;
