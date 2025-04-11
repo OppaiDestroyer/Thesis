@@ -208,7 +208,7 @@ h1 {
   padding: 20px;
   background-color: var(--primary-color);
   border-radius: 10px;
-  min-width: 20px;
+  min-width: 250px;
 }
 
 .dashboard-content h2 {
@@ -546,12 +546,13 @@ h1 {
 .news-content {
   width: 90%;
   max-width: 800px;
+  min-width: 300px;
   margin: 20px auto;
   padding: 20px;
   background: var(--primary-color);
   border-radius: 10px;
   box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-  margin-top: 80px;
+  margin-top: 20px;
 }
 
 .news-content h2 {
