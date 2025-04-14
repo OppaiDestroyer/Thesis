@@ -1,12 +1,10 @@
-
 document.addEventListener("DOMContentLoaded", function () {
     const socket = io("http://localhost:5000");
     let currentPerforming = "";
     let waitingForRFID = null;
     let isScoringActive = false;
     let playerStarted = { 1: false, 2: false };
-    let playerSubmitted = { 1: false, 2: false };
-    const registeredRFIDs = {};
+    let registeredRFIDs = {};
     let gameNumber = 1; // Global game counter
 
     socket.on("rfid_data", function (data) {
@@ -43,8 +41,66 @@ document.addEventListener("DOMContentLoaded", function () {
                 socket.emit("update_audience", { registeredRFIDs });
             })
             .catch(error => console.error("Error fetching player:", error));
+            console.log("Player1:", registeredRFIDs[1], "Player2:", registeredRFIDs[2]);
     });
+        
 
+    /* document.getElementById("start-recording").addEventListener("click", function () {
+        const player1Name = document.getElementById("player1-name").innerText;
+        const player2Name = document.getElementById("player2-name").innerText;
+    
+        if (!player1Name || !player2Name) {
+            alert("Both players must be registered before recording!");
+            return;
+        }
+    
+        fetch("http://127.0.0.1:5000/start_recording", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                player1: player1Name,  // Send player names instead of RFID
+                player2: player2Name
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "success") {
+                console.log(`Recording started for ${player1Name} and ${player2Name}!`);
+            } else {
+                alert("Error starting recording on Raspberry Pi.");
+            }
+        })
+        .catch(error => console.error("Error:", error));
+    });
+    
+
+    document.getElementById("start-recording2").addEventListener("click", function () {
+        const player1Name = document.getElementById("player1-name").innerText;
+        const player2Name = document.getElementById("player2-name").innerText;
+    
+        if (!player1Name || !player2Name) {
+            alert("Both players must be registered before recording!");
+            return;
+        }
+    
+        fetch("http://127.0.0.1:5000/start_recording2", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                player1: player1Name,  
+                player2: player2Name
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "success") {
+                console.log(`Recording started for ${player1Name} and ${player2Name}!`);
+            } else {
+                alert("Error starting recording on Raspberry Pi.");
+            }
+        })
+        .catch(error => console.error("Error:", error));
+    });  */
 
     function assignPlayer(playerNumber, rfid, player) {
         updatePlayerInfo(playerNumber, player);
@@ -61,6 +117,9 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
+
+
+
     function unregisterPlayer(playerNumber) {
         delete registeredRFIDs[playerNumber];
 
@@ -74,7 +133,7 @@ document.addEventListener("DOMContentLoaded", function () {
     function updatePlayerInfo(playerNumber, player) {
         const fullName = `${player.firstname || ""} ${player.middlename || ""} ${player.lastname || ""}`.trim();
 
-        document.getElementById(`player${playerNumber}-name`).innerText = fullName || "Unknown";
+        document.getElementById(`player${playerNumber}-name`).innerText = fullName || "Not Registered";
         document.getElementById(`player${playerNumber}-category`).innerText = player.category || "Unknown";
         document.getElementById(`player${playerNumber}-belt`).innerText = player.belt || "Unknown";
         document.getElementById(`player${playerNumber}-gym`).innerText = player.gym || "Unknown";
@@ -155,56 +214,42 @@ document.addEventListener("DOMContentLoaded", function () {
         const player2TotalEl = document.getElementById("player2-total-score");
         const player1SubmitEl = document.getElementById("player1-submit");
         const player2SubmitEl = document.getElementById("player2-submit");
-
+    
         // Check if elements exist
         if (!player1TotalEl || !player2TotalEl || !player1SubmitEl || !player2SubmitEl) {
             console.error("Error: One or more elements are missing!");
             alert("Error: Required elements are missing in the DOM.");
             return;
         }
-
+    
         // Parse totals
         const player1Total = parseFloat(player1TotalEl.innerText) || 0;
         const player2Total = parseFloat(player2TotalEl.innerText) || 0;
-
+    
         // Check submission status
         const player1Submitted = player1SubmitEl.value === "true";
         const player2Submitted = player2SubmitEl.value === "true";
-
+    
         if (!player1Submitted || !player2Submitted) {
             alert("Error: Both players must submit their scores first!");
             return;
         }
-
+    
         // Determine winner
         let winnerText = "";
         let winnerNumber = null;
         let winnerData = null;
-
+    
         if (player1Total > player2Total) {
             winnerText = "🏆 Player 1 Wins!";
             winnerNumber = 1;
-            winnerData = {
-                name: document.getElementById("player1-name").innerText,
-                category: document.getElementById("player1-category").innerText,
-                belt: document.getElementById("player1-belt").innerText,
-                gym: document.getElementById("player1-gym").innerText,
-                totalScore: player1Total
-            };
-        
+            winnerData = getPlayerData(1);
             console.log("[DEBUG] Emitting PLAYER1_WIN:", winnerData);
             socket.emit("winner_displayed", { winner: "PLAYER1_WIN", winnerData });
         } else if (player2Total > player1Total) {
             winnerText = "🏆 Player 2 Wins!";
             winnerNumber = 2;
-            winnerData = {
-                name: document.getElementById("player2-name").innerText,
-                category: document.getElementById("player2-category").innerText,
-                belt: document.getElementById("player2-belt").innerText,
-                gym: document.getElementById("player2-gym").innerText,
-                totalScore: player2Total
-            };
-        
+            winnerData = getPlayerData(2);
             console.log("[DEBUG] Emitting PLAYER2_WIN:", winnerData);
             socket.emit("winner_displayed", { winner: "PLAYER2_WIN", winnerData });
         } else {
@@ -212,257 +257,202 @@ document.addEventListener("DOMContentLoaded", function () {
             console.log("[DEBUG] Emitting DRAW");
             socket.emit("winner_displayed", { winner: "DRAW" });
         }
-        
-
+    
         // Gather player details
-        const player1Info = {
-            name: document.getElementById("player1-name").innerText,
-            belt: document.getElementById("player1-belt").innerText,
-            gym: document.getElementById("player1-gym").innerText,
-            category: document.getElementById("player1-category").innerText,
-            accuracy: document.getElementById("player1-accuracy-score").innerText,
-            presentation: document.getElementById("player1-presentation-score").innerText,
-            totalScore: document.getElementById("player1-total-score").innerText,
-            performing: document.getElementById("player1-performing").innerText,
-            status: "", // to be assigned below
-            game: gameNumber
-        };
-
-        const player2Info = {
-            name: document.getElementById("player2-name").innerText,
-            belt: document.getElementById("player2-belt").innerText,
-            gym: document.getElementById("player2-gym").innerText,
-            category: document.getElementById("player2-category").innerText,
-            accuracy: document.getElementById("player2-accuracy-score").innerText,
-            presentation: document.getElementById("player2-presentation-score").innerText,
-            totalScore: document.getElementById("player2-total-score").innerText,
-            performing: document.getElementById("player2-performing").innerText,
-            status: "",
-            game: gameNumber
-        };
-
-        // Set status based on the winner
-        if (winnerText === "🤝 It's a Tie!") {
-            player1Info.status = "Tie";
-            player2Info.status = "Tie";
-        } else {
-            player1Info.status = (winnerNumber === 1) ? "Winner" : "Loser";
-            player2Info.status = (winnerNumber === 2) ? "Winner" : "Loser";
-        }
-
+        const player1Info = getPlayerInfo(1, winnerText, winnerNumber);
+        const player2Info = getPlayerInfo(2, winnerText, winnerNumber);
+    
         // Post the game info to the server
         const gameData = {
             game: gameNumber,
-            players: [player1Info,{
-                name: document.getElementById("player1-name").innerText,
-                totalScore: player1Total,
-                status: winnerText.includes("Player 1") ? "Winner" : "Loser"
-            }, player2Info, {
-                name: document.getElementById("player2-name").innerText,
-                totalScore: player2Total,
-                status: winnerText.includes("Player 2") ? "Winner" : "Loser"
-            }]
+            players: [player1Info, player2Info]
         };
-
-
-
-
-        // **Save both players' info in MongoDB**
+    
+        // Save game data in MongoDB
         fetch('/api/winners/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(gameData)
         })
-            .then(response => response.json())
-            .then(data => {
-                console.log("Game data saved successfully:", data);
-            })
-            .catch(error => {
-                console.error("Error saving game data:", error);
-            });
-
-
+        .then(response => response.json())
+        .then(data => {
+            console.log("Game data saved successfully:", data);
+        })
+        .catch(error => {
+            console.error("Error saving game data:", error);
+        });
+    
         // Alert the winner
         alert(winnerText);
-
+    
         // Increment game number for the next match
         gameNumber++;
-
+    
         // Reset the game
         resetGame();
     }
-
-
-
-    // Reset function to clear data
+    
+    function getPlayerData(playerNumber) {
+        return {
+            name: document.getElementById(`player${playerNumber}-name`).innerText,
+            category: document.getElementById(`player${playerNumber}-category`).innerText,
+            belt: document.getElementById(`player${playerNumber}-belt`).innerText,
+            gym: document.getElementById(`player${playerNumber}-gym`).innerText,
+            totalScore: parseFloat(document.getElementById(`player${playerNumber}-total-score`).innerText)
+        };
+    }
+    
+    function getPlayerInfo(playerNumber, winnerText, winnerNumber) {
+        const playerInfo = {
+            name: document.getElementById(`player${playerNumber}-name`).innerText,
+            belt: document.getElementById(`player${playerNumber}-belt`).innerText,
+            gym: document.getElementById(`player${playerNumber}-gym`).innerText,
+            category: document.getElementById(`player${playerNumber}-category`).innerText,
+            accuracy: document.getElementById(`player${playerNumber}-accuracy-score`).innerText,
+            presentation: document.getElementById(`player${playerNumber}-presentation-score`).innerText,
+            totalScore: document.getElementById(`player${playerNumber}-total-score`).innerText,
+            performing: document.getElementById(`player${playerNumber}-performing`).innerText,
+            status: (winnerText.includes(`Player ${playerNumber}`)) ? "Winner" : "Loser",
+            game: gameNumber
+        };
+        return playerInfo;
+    }
+    
     function resetGame() {
         console.log("Resetting game...");
-
-        // Reset global variables
+    
+        // Reset global variables and player details
         waitingForRFID = null;
         isScoringActive = false;
         playerStarted = { 1: false, 2: false };
         playerSubmitted = { 1: false, 2: false };
-        // Clear registeredRFIDs keys
-        for (let key in registeredRFIDs) {
-            delete registeredRFIDs[key];
-        }
-        currentPerforming = ""; // Reset performing value
-        // Reset scores to initial values
-        document.getElementById("player1-total-score").innerText = "10";
-        document.getElementById("player2-total-score").innerText = "10";
-        document.getElementById("player1-accuracy-score").innerText = "4";
-        document.getElementById("player1-presentation-score").innerText = "6";
-        document.getElementById("player2-accuracy-score").innerText = "4";
-        document.getElementById("player2-presentation-score").innerText = "6";
-
-        // Clear deductions
-        document.getElementById("player1-accuracy-deduction").value = "";
-        document.getElementById("player1-presentation-deduction").value = "";
-        document.getElementById("player1-performing").innerText = "";
-        document.getElementById("player2-performing").innerText = "";
-        document.getElementById("player2-accuracy-deduction").value = "";
-        document.getElementById("player2-presentation-deduction").value = "";
-
-        // Reset player details for Player 1
-        document.getElementById("player1-name").innerText = "";
-        document.getElementById("player1-category").innerText = "";
-        document.getElementById("player1-belt").innerText = "";
-        document.getElementById("player1-gym").innerText = "";
-        document.querySelector(".player1-detected").innerText = "Not Register";
-
-        // Reset player details for Player 2
-        document.getElementById("player2-name").innerText = "";
-        document.getElementById("player2-category").innerText = "";
-        document.getElementById("player2-belt").innerText = "";
-        document.getElementById("player2-gym").innerText = "";
-        document.querySelector(".player2-detected").innerText = "Not Register";
-
-        // Reset submission status (if using hidden inputs)
-        if (document.getElementById("player1-submit")) {
-            document.getElementById("player1-submit").value = "false";
-        }
-        if (document.getElementById("player2-submit")) {
-            document.getElementById("player2-submit").value = "false";
-        }
-
+        registeredRFIDs = {};
+    
+        // Reset scores and player info
+        resetPlayerInfo(1);
+        resetPlayerInfo(2);
+    
         console.log("Game reset. Ready for a new match.");
     }
-
+    
+    function resetPlayerInfo(playerNumber) {
+        document.getElementById(`player${playerNumber}-total-score`).innerText = "10";
+        document.getElementById(`player${playerNumber}-accuracy-score`).innerText = "4";
+        document.getElementById(`player${playerNumber}-presentation-score`).innerText = "6";
+        document.getElementById(`player${playerNumber}-accuracy-deduction`).value = "";
+        document.getElementById(`player${playerNumber}-presentation-deduction`).value = "";
+        document.getElementById(`player${playerNumber}-performing`).innerText = "";
+        document.getElementById(`player${playerNumber}-name`).innerText = "";
+        document.getElementById(`player${playerNumber}-category`).innerText = "";
+        document.getElementById(`player${playerNumber}-belt`).innerText = "";
+        document.getElementById(`player${playerNumber}-gym`).innerText = "";
+        document.querySelector(`.player${playerNumber}-detected`).innerText = "Not Registered";
+        document.getElementById(`player${playerNumber}-submit`).value = "false";
+    }
+    
     function submitScores(playerNumber) {
-        // Check if player elements exist
-        const playerDetectedElement = document.getElementById(`player${playerNumber}-detected`);
-        if (!playerDetectedElement) {
-            console.error(`Error: Player ${playerNumber} detection element not found.`);
+        // Ensure player is registered and has started
+        if (!isPlayerValid(playerNumber)) {
             return;
         }
-
-        // Check if both players are registered
-        const player1Registered = document.getElementById("player1-detected")?.innerText !== "Not Registered";
-        const player2Registered = document.getElementById("player2-detected")?.innerText !== "Not Registered";
-        if (!player1Registered || !player2Registered) {
-            alert("Error: Both players must be registered before submitting scores!");
-            return;
-        }
-
-        // Ensure the player has started before submitting score
-        if (!playerStarted[playerNumber]) {
-            alert(`Error: Player ${playerNumber} has not started yet!`);
-            return;
-        }
-
-        // Get score elements
-        const accuracyScoreElement = document.getElementById(`player${playerNumber}-accuracy-score`);
-        const presentationScoreElement = document.getElementById(`player${playerNumber}-presentation-score`);
-        const totalScoreElement = document.getElementById(`player${playerNumber}-total-score`);
-
-        if (!accuracyScoreElement || !presentationScoreElement || !totalScoreElement) {
-            console.error(`Error: Score elements for Player ${playerNumber} are missing.`);
-            return;
-        }
-
-        // Get deductions
-        const accuracyDeductionElement = document.getElementById(`player${playerNumber}-accuracy-deduction`);
-        const presentationDeductionElement = document.getElementById(`player${playerNumber}-presentation-deduction`);
-
-        const accuracyDeduction = accuracyDeductionElement ? parseFloat(accuracyDeductionElement.value) || 0 : 0;
-        const presentationDeduction = presentationDeductionElement ? parseFloat(presentationDeductionElement.value) || 0 : 0;
-
-        // Calculate new scores
-        let newAccuracyScore = parseFloat(accuracyScoreElement.innerText) - accuracyDeduction;
-        let newPresentationScore = parseFloat(presentationScoreElement.innerText) - presentationDeduction;
-
-        // Prevent negative scores
-        newAccuracyScore = Math.max(newAccuracyScore, 0);
-        newPresentationScore = Math.max(newPresentationScore, 0);
-
-        // Update score elements
-        accuracyScoreElement.innerText = newAccuracyScore.toFixed(1);
-        presentationScoreElement.innerText = newPresentationScore.toFixed(1);
-
-        // Update total score
-        const newTotalScore = newAccuracyScore + newPresentationScore;
-        totalScoreElement.innerText = newTotalScore.toFixed(1);
-
+    
+        const accuracyScore = updateScore(playerNumber, "accuracy");
+        const presentationScore = updateScore(playerNumber, "presentation");
+    
+        // Calculate total score and update
+        const totalScore = accuracyScore + presentationScore;
+        document.getElementById(`player${playerNumber}-total-score`).innerText = totalScore.toFixed(1);
+    
         // Mark as submitted
-        const submittedElement = document.getElementById(`player${playerNumber}-submit`);
-        if (submittedElement) {
-            submittedElement.value = "true";
-        } else {
-            console.log(`Error: Submission element for Player ${playerNumber} not found.`);
-        }
-
-        console.log(`✅ Player ${playerNumber} submitted their score.`);
-
-        // Emit updated scores to audience via socket
+        document.getElementById(`player${playerNumber}-submit`).value = "true";
+    
+        // Emit the updated score
         socket.emit("update_score", {
             playerNumber: playerNumber,
-            accuracy: newAccuracyScore,
-            presentation: newPresentationScore,
-            total: newTotalScore
+            accuracy: accuracyScore,
+            presentation: presentationScore,
+            total: totalScore
         });
+    
+        console.log(`✅ Player ${playerNumber} submitted their score.`);
     }
-
-
-
-
-
+    
+    function isPlayerValid(playerNumber) {
+        const playerDetectedElement = document.getElementById(`player${playerNumber}-detected`);
+        const playerRegistered = playerDetectedElement && playerDetectedElement.innerText !== "Not Registered";
+        if (!playerRegistered) {
+            alert(`Error: Player ${playerNumber} must be registered before submitting scores!`);
+            return false;
+        }
+        if (!playerStarted[playerNumber]) {
+            alert(`Error: Player ${playerNumber} has not started yet!`);
+            return false;
+        }
+        return true;
+    }
+    
+    function updateScore(playerNumber, scoreType) {
+        const scoreElement = document.getElementById(`player${playerNumber}-${scoreType}-score`);
+        const deductionElement = document.getElementById(`player${playerNumber}-${scoreType}-deduction`);
+        const score = parseFloat(scoreElement.innerText) || 0;
+        const deduction = parseFloat(deductionElement.value) || 0;
+        const newScore = Math.max(score - deduction, 0);
+        scoreElement.innerText = newScore.toFixed(1);
+        return newScore;
+    }
+    
     // Event Listener for Player 1 Submit Button
     document.querySelector(".player1-submit").addEventListener("click", function () {
         submitScores(1);
-
-        // Show scores for 5 seconds, then return to waiting-start
+    
+        // 🔓 Re-enable all buttons
+        document.querySelectorAll("button").forEach(btn => {
+            btn.disabled = false;
+        });
+    
         setTimeout(() => {
             socket.emit("game_state", { state: "waiting-start" });
         }, 10000);
     });
-
+    
+    
     // Event Listener for Player 2 Submit Button
     document.querySelector(".player2-submit").addEventListener("click", function () {
         submitScores(2);
-
-        // Show scores for 5 seconds, then transition to waiting-result
         setTimeout(() => {
             socket.emit("game_state", { state: "waiting-result" });
         }, 10000);
     });
-
-
+    
     // Event listener for the Display button
     document.querySelector(".displayBtn").addEventListener("click", function () {
         console.log("Display button clicked.");
         displayWinner();
-        socket.emit("game_state", { state: "winner-details" });
-        
+        socket.emit("game_state", { state: "waiting-reset" });
     });
+    
 
 
     document.querySelector(".player1-start").addEventListener("click", function () {
+        if (!registeredRFIDs[1]) {
+            alert("Error: Player 1 must be registered before starting!");
+            return;
+        }
+    
+        if (!registeredRFIDs[2]) {
+            alert("Error: Player 2 must be registered before starting!");
+            return;
+        }
+    
+        // 🔒 Disable all buttons except .player1-submit
+        document.querySelectorAll("button").forEach(btn => {
+            if (!btn.classList.contains("player1-submit")) {
+                btn.disabled = true;
+            }
+        });
+    
         generateRandomScores(1);
-        socket.emit("game_state", { state: "player-container" });
-
-
-
+    
         const playerData = {
             playerName: document.getElementById("player1-name").innerText,
             category: document.getElementById("player1-category").innerText,
@@ -470,10 +460,18 @@ document.addEventListener("DOMContentLoaded", function () {
             gym: document.getElementById("player1-gym").innerText,
             performance: document.getElementById("player1-performing").innerText,
         };
-        console.log("Sending player data:", playerData); // Debugging
+        console.log("Sending player 1 data:", playerData);
         socket.emit("start_game", playerData);
-
+    
+        socket.emit("game_state", { state: "player-container" });
     });
+    
+    document.querySelector(".player1-start").addEventListener("click", () => {
+        fetch("/start_recording", { method: "POST" })
+            .then(response => response.json())
+            .then(data => console.log(data.status))
+            .catch(error => console.error("Error starting recording:", error));
+    }); 
 
     document.querySelector(".player2-start").addEventListener("click", function () {
         if (!playerStarted[1] && !playerSubmitted[1]) {
@@ -504,4 +502,3 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 });
-
