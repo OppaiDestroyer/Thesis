@@ -20,26 +20,24 @@
       <div class="loader"></div>
     </div>
 
-    <!-- Player Scoring Container -->
-    <div id="player-container" class="container hidden">
-      <h1>Taekwondo Scoreboard</h1>
-      <div class="content-container">
-        <div class="details-corner">
-          <div class="player-info">
-            <h2>Player Information</h2>
-            <div class="info-columns">
-              <div class="info-column">
-                <p><strong>Player:</strong> <span id="player-name"></span></p>
-                <p>
-                  <strong>Category:</strong> <span id="player-category"></span>
-                </p>
-              </div>
-              <div class="info-column">
-                <p><strong>Belt:</strong> <span id="player-belt"></span></p>
-                <p><strong>Gym:</strong> <span id="player-gym"></span></p>
-              </div>
+  <!-- Player Scoring Container -->
+  <div id="player-container" class="container hidden">
+    <h1>Taekwondo Scoreboard</h1>
+    <div class="content-container">
+      <div class="details-corner">
+        <div class="player-info">
+          <h2>Player Information</h2>
+          <div class="info-columns">
+            <div class="info-column">
+              <p><strong>Player:</strong> <span id="player-name"></span></p>
+              <p><strong>Category:</strong> <span id="player-category"></span></p>
+            </div>
+            <div class="info-column">
+              <p><strong>Belt:</strong> <span id="player-belt"></span></p>
+              <p><strong>Gym:</strong> <span id="player-gym"></span></p>
             </div>
           </div>
+        </div>
 
           <div class="performing-container">
             <h1>Performing:</h1>
@@ -73,7 +71,7 @@
       <div class="loader"></div>
     </div>
 
-    <!-- Winner Details -->
+  
     <div id="winner-details" class="full-screen hidden">
       <h2>🏆 Winner: <span id="winner-name"></span></h2>
       <p>Category: <span id="winner-category"></span></p>
@@ -82,8 +80,31 @@
       <p>Total Score: <span id="winner-score"></span></p>
     </div>
 
-    <!-- Scripts -->
+ 
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+    </div>
+
+    <div id="waiting-result" class="full-screen hidden">
+      <h1>Waiting for the result</h1>
+      <div class="loader"></div>
+ 
+    </div>
+
+    <div id="winner-details" class="full-screen hidden">
+      <span class="trophy">🏆</span>
+      <h2><strong> Winner: </strong><span id="winner-name"></span></h2>
+      <div class="winner-info">
+        <p><strong>Category:</strong> <span id="winner-category"></span></p>
+        <p><strong>Belt:</strong> <span id="winner-belt"></span></p>
+        <p><strong>Gym:</strong> <span id="winner-gym"></span></p>
+        <p><strong>Score:</strong> <span id="winner-score"></span></p>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+
     <script src="../static/assets/js/audienceSB.js"></script>
   </body>
 </html>
+
