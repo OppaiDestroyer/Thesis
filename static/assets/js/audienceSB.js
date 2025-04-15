@@ -137,7 +137,7 @@ document.addEventListener("DOMContentLoaded", function () {
       !winnerDetails ||
       !winnerName ||
       !winnerCategory ||
-      !winnerBelt ||
+      !winnerBelt ||        
       !winnerGym ||
       !winnerScore
     ) {
@@ -188,7 +188,7 @@ document.addEventListener("DOMContentLoaded", function () {
     winnerDetails.classList.remove("hidden");
   });
 
-});
+ 
 
 // document.addEventListener("DOMContentLoaded", () => {
 //   const nextBtn = document.getElementById("next");

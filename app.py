@@ -730,4 +730,4 @@ if __name__ == '__main__':
     if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
         connection_thread = threading.Thread(target=rfid_and_winner_handler, name="UnifiedHandler", daemon=True)
         connection_thread.start()
-    socketio.run(app, debug=True, allow_unsafe_werkzeug=True)
+    socketio.run(app)
