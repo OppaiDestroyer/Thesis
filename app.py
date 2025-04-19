@@ -1,5 +1,5 @@
-import eventlet
-eventlet.monkey_patch()
+from gevent import monkey
+monkey.patch_all()
 import socket
 import threading
 from flask import Flask, request, render_template, session, redirect, jsonify, make_response, url_for
@@ -31,7 +31,7 @@ app = Flask(__name__)
 app.secret_key = "7a396704-83f5-4598-8a7c-32e4bd58c676"
 app.config['SESSION_PERMANENT'] = False  # Ensure session expires on browser close
 app.register_blueprint(user_bp, url_prefix='/api')
-socketio = SocketIO(app, async_mode='eventlet')
+socketio = SocketIO(app, async_mode='gevent')
 
 SERVER_IP = "raspberrypi"  # Change this to match your setup
 PORT = 6000
@@ -729,4 +729,4 @@ def credentials_to_dict(credentials):
 
 if __name__ == '__main__':
     socketio.start_background_task(target=rfid_and_winner_handler)
-    socketio.run(app)
+    socketio.run(app, host="0.0.0.0", port=6000) 
