@@ -1,3 +1,5 @@
+import eventlet
+eventlet.monkey_patch()
 import socket
 import threading
 from flask import Flask, request, render_template, session, redirect, jsonify, make_response, url_for
@@ -724,6 +726,6 @@ def credentials_to_dict(credentials):
         'scopes': credentials.scopes
     }
 
+socketio.start_background_task(target=rfid_and_winner_handler)
 if __name__ == '__main__':
-    socketio.start_background_task(target=rfid_and_winner_handler)
     socketio.run(app)
