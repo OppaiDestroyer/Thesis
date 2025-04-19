@@ -1,3 +1,5 @@
+import eventlet
+eventlet.monkey_patch()
 import socket
 import threading
 from flask import Flask, request, render_template, session, redirect, jsonify, make_response, url_for
