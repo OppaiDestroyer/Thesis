@@ -23,7 +23,7 @@ from flask_socketio import SocketIO, emit
 import queue
 import json
 import requests
-
+import time
 
 app = Flask(__name__)
 app.secret_key = "7a396704-83f5-4598-8a7c-32e4bd58c676"
@@ -356,7 +356,7 @@ def rfid_and_winner_handler():
             with socket.create_connection((SERVER_IP, PORT)) as client_socket:
                 print(f"[CONNECTED] Unified Connection to {SERVER_IP}:{PORT}")
 
-                # Start RFID listener in a separate thread using the same socket
+                # Start RFID listener using the same socket
                 rfid_thread = threading.Thread(target=receive_rfid_data, args=(client_socket,), daemon=True)
                 rfid_thread.start()
 
@@ -371,14 +371,16 @@ def rfid_and_winner_handler():
                         print(f"[DEBUG] Sending Winner Data: {json_data}")
                         client_socket.sendall(json_data.encode("utf-8"))
 
-                        # Wait for optional response
+                        # Optional response from server
                         response = client_socket.recv(1024).decode("utf-8").strip()
                         print(f"[SERVER RESPONSE] {response}")
 
                         winner_queue.task_done()
 
-        except (socket.error, ConnectionRefusedError):
-            print("[ERROR] Connection lost. Retrying in 5 seconds...")
+        except (socket.error, ConnectionRefusedError) as e:
+            print(f"[ERROR] Connection lost. Retrying in 5 seconds... ({e})")
+            time.sleep(5)
+
             
 
 
@@ -389,14 +391,11 @@ def receive_rfid_data(client_socket):
         while True:
             data = client_socket.recv(1024).decode().strip()
             if not data:
-                break  # Assume server disconnected
-
+                break  # Server disconnected
             print(f"[RFID] {data}")
             socketio.emit("rfid_data", {"rfid": data})
-
-    except (socket.error, ConnectionResetError):
-        print("[ERROR] RFID receiving stopped.")
-
+    except (socket.error, ConnectionResetError) as e:
+        print(f"[ERROR] RFID receiving stopped: {e}")
 
 
 ### --- 🔥 SOCKET EVENT HANDLING --- ###
@@ -728,8 +727,5 @@ def credentials_to_dict(credentials):
 
 
 if __name__ == '__main__':
-     # Prevent double execution caused by Flask's debug mode reloader
-    if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-        connection_thread = threading.Thread(target=rfid_and_winner_handler, name="UnifiedHandler", daemon=True)
-        connection_thread.start()
+    socketio.start_background_task(target=rfid_and_winner_handler)
     socketio.run(app)
