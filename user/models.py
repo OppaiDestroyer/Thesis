@@ -7,9 +7,9 @@ class User:
 
     @staticmethod
     def start_session(user):
+        user['_id'] = str(user['_id'])  # Convert ObjectId to string
         session['logged_in'] = True
-        session['user'] = user
-        session.permanent = False  # Ensure session is non-permanent
+        session['user'] = user  # optional: if you want session to carry user data
         return jsonify(user), 200
     
     @staticmethod

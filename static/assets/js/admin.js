@@ -1,18 +1,66 @@
 
-  
+
 document.addEventListener("DOMContentLoaded", function () {
   const socket = io.connect(location.protocol + "//" + document.domain + ":" + location.port);
 
   // Listen for RFID data
   socket.on("rfid_data", function (data) {
-      console.log("Received RFID:", data.rfid);
+    console.log("Received RFID:", data.rfid);
 
-      // Insert RFID into input field
-      document.getElementById("rfid").value = data.rfid;
+    // Insert RFID into input field
+    document.getElementById("rfid").value = data.rfid;
+  });
+});
+document.addEventListener("DOMContentLoaded", function () {
+  // Initialize socket connection
+  const socket = io.connect(location.protocol + "//" + document.domain + ":" + location.port);
+
+  const connectButton = document.getElementById("connect-button");
+  const buttonText = connectButton.querySelector("h1");
+
+  // Check connection status from localStorage
+  const storedStatus = localStorage.getItem('connectionStatus');
+  if (storedStatus === 'connected') {
+    buttonText.innerText = 'Connected';  // Set to 'Connected' if stored
+  } else {
+    buttonText.innerText = 'Disconnected';  // Otherwise, 'Disconnected'
+  }
+
+  // Emit a 'start_connection' event when the button is clicked
+  connectButton.addEventListener("click", function () {
+    console.log("Connect button clicked");
+    socket.emit('start_connection');  // Emit to start the connection
+  });
+
+  // Listen for the connection status from the server
+  socket.on('connection_status', function (data) {
+    if (data.status === 'connected') {
+      buttonText.innerText = 'Connected'; // Change text to "Connected"
+      localStorage.setItem('connectionStatus', 'connected'); // Store status in localStorage
+    } else {
+      buttonText.innerText = 'Disconnected'; // Change text to "Disconnected"
+      localStorage.setItem('connectionStatus', 'disconnected'); // Store status in localStorage
+    }
+  });
+
+  // Handle log out functionality
+  const logoutButton = document.getElementById("logout-button");
+  logoutButton.addEventListener("click", function () {
+    console.log("Logging out and disconnecting...");
+    
+    // Emit a disconnect event
+    socket.emit('disconnect_request');
+
+    // Clear localStorage status
+    localStorage.removeItem('connectionStatus');
+
+    // Redirect to logout route
+    window.location.href = "/api/logout"; // This redirects to the logout route, make sure it's handled in the backend
   });
 });
 
-//SIDE NAVIGATION BAR
+
+
 document.addEventListener("DOMContentLoaded", function () {
   // Sidebar Navigation Elements
   const navItems = document.querySelectorAll(".container-nav-circle");
@@ -42,9 +90,12 @@ document.addEventListener("DOMContentLoaded", function () {
   contentSections.dashboard.style.display = "block";
   document.querySelector(".dashboard").classList.add("active");
 
-  // Attach Click Event to Sidebar Items
+  // Attach Click Event to Sidebar Items (except "Connect" button)
   navItems.forEach((item) => {
     item.addEventListener("click", function () {
+      // Prevent content switch for "Connect" button
+      if (this.classList.contains('connect')) return;
+
       hideAllSections();
       removeActiveClass();
       let sectionClass = this.classList[0];
@@ -55,6 +106,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 });
+
 //====================================================================================================
 
 // REGISTER PLAYERS
@@ -118,17 +170,17 @@ async function handleFormSubmit(event) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     });
-  
+
     const result = await response.json();
     console.log("🔍 Full Server Response:", result); // Debugging
-  
+
     if (response.status === 400) {
       console.warn("⚠️ Bad Request Error:", result.error);
       alert("❌ Error: " + result.error);
       submitButton.disabled = false;
       return;
     }
-  
+
     if (result.message) {
       alert("🎉 Player registered successfully!");
       document.querySelector("form[name='signup_form']").reset();
@@ -142,7 +194,7 @@ async function handleFormSubmit(event) {
   } finally {
     submitButton.disabled = false;
   }
-  
+
 }
 
 //====================================================================================================
@@ -435,3 +487,4 @@ document
       this.disabled = false;
     }
   });
+

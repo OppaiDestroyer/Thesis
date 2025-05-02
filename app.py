@@ -1,5 +1,4 @@
-from gevent import monkey
-monkey.patch_all()
+
 import socket
 import threading
 from flask import Flask, request, render_template, session, redirect, jsonify, make_response, url_for
@@ -31,16 +30,16 @@ app = Flask(__name__)
 app.secret_key = "7a396704-83f5-4598-8a7c-32e4bd58c676"
 app.config['SESSION_PERMANENT'] = False  # Ensure session expires on browser close
 app.register_blueprint(user_bp, url_prefix='/api')
-socketio = SocketIO(app, async_mode='gevent')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 SERVER_IP = "raspberrypi"  # Change this to match your setup
-PORT = 6000
+PORT = 10000
 appConf = {
     "OAUTH2_CLIENT_ID": os.environ.get("OAUTH2_CLIENT_ID"),
     "OAUTH2_CLIENT_SECRET": os.environ.get("OAUTH2_CLIENT_SECRET"),
     "OAUTH2_META_URL": "https://accounts.google.com/.well-known/openid-configuration",
     "FLASK_SECRET": os.environ.get("FLASK_SECRET"),
-    "FLASK_PORT": 6000
+    "FLASK_PORT": 5000
 }
 
 oauth = OAuth(app)
@@ -57,21 +56,35 @@ google = oauth.register(
 
 
 winner_queue = queue.Queue()
+player_start_queue = queue.Queue() 
 
 # Google Drive API Setup
 SCOPES = ["https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive.readonly"]
 CLIENT_SECRETS_FILE = "client_secret.json"
 ROOT_FOLDER_ID = "1NndBdfWTZl4ZMjGZWWb1UjgeVijl986v"
 ARCHIVE_FOLDER_ID = "1GM5-ZA57QPylEhcMexwhhVmdd2g09ZRX"
-TOKEN_JSON_PATH = "token.json"
+TOKEN_JSON_PATH = "token.json"  
 
-REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "http://localhost:6000/callback")
+REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "http://localhost:5000/callback")
 
 flow = Flow.from_client_secrets_file(
     CLIENT_SECRETS_FILE,
     scopes=SCOPES,
     redirect_uri=REDIRECT_URI
 )
+
+
+# Authentication Middleware
+def login_required(f):
+    @wraps(f)
+    def wrap(*args, **kwargs):
+        session.permanent = False  # Ensure session is non-permanent per request
+        if 'logged_in' in session:
+            return f(*args, **kwargs)
+        else:
+            return redirect('/')
+    return wrap
+
 
 def get_drive_service():
     """Authenticate using OAuth 2.0 and return the Google Drive service."""
@@ -91,7 +104,7 @@ def get_drive_service():
             flow = Flow.from_client_secrets_file(
                 CLIENT_SECRETS_FILE,
                 scopes=SCOPES,
-                redirect_uri='http://localhost:6000/callback'  # adjust if needed for deployment
+                redirect_uri='http://localhost:5000/callback'  # adjust if needed for deployment
             )
             auth_url, _ = flow.authorization_url(prompt='consent')
             print(f"🔎 Go to this URL and authorize access: {auth_url}")
@@ -114,24 +127,7 @@ def get_drive_service():
         print(f"❌ Error initializing Google Drive service: {e}")
         return None
     
-def receive_rfid_data():
-    """Function to receive RFID data from the server and send it to the frontend."""
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
-            client_socket.connect((SERVER_IP, PORT))
-            print("[CONNECTED] Receiving RFID data...")
 
-
-
-            while True:
-                data = client_socket.recv(1024).decode().strip()
-                if data:
-                    print(f"[RFID] {data}")
-                    # Emit the actual RFID data to update the input box
-                    socketio.emit("rfid_data", {"rfid": data})
-
-    except Exception as e:
-        print(f"[ERROR] Could not connect: {e}")
 
 
 def create_drive_folder(folder_name, parent_folder_id):
@@ -262,6 +258,7 @@ def upload_to_drive(file_stream, filename, parent_folder_id):
     return uploaded_file.get("id"), uploaded_file.get("webViewLink")
 
 @app.route("/api/winners/save", methods=["POST"])
+@login_required
 def save_game():
     try:
         data = request.json
@@ -278,6 +275,7 @@ def save_game():
         return jsonify({"error": str(e)}), 500
 
 @app.route("/api/archiveRecords", methods=["POST"])
+@login_required
 def archive_records():
     """Archive player records, generate a PDF, and move data to Google Drive."""
     from datetime import datetime
@@ -322,9 +320,12 @@ def archive_records():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+# Track current registered RFIDs (this resets after every match)
+current_rfids = {}  # e.g., {1: "56F989", 2: "AABBCC"}
 
 
 @app.route("/get_player/<rfid>", methods=["GET"])
+@login_required
 def get_player(rfid):
     player = db.players.find_one({"rfid": rfid}, {"_id": 0})  # Exclude MongoDB's `_id`
     
@@ -333,164 +334,180 @@ def get_player(rfid):
     return jsonify(None)
 
 @socketio.on("game_state")
+@login_required
 def update_game_state(data):
     print("Game state updated:", data)  # ✅ Debugging print
     emit("game_state", data, broadcast=True)  # ✅ Broadcast to all clients
 
 @socketio.on("start_game")
+@login_required
 def handle_start_game(data):
     print("Broadcasting start_game event:", data)  # Debugging
     emit("start_game", data, broadcast=True)
     
 @socketio.on("update_score")
+@login_required
 def handle_update_score(data):
     print("Received updated score:", data)  # Debugging
     emit("update_score", data, broadcast=True)
 
-
-
-
-### --- 🔥 SINGLE CONNECTION HANDLER --- ###
+# Global state to track connection status
+is_connected = False
+client_socket = None  # Global socket variable
 def rfid_and_winner_handler():
-    """Single connection for RFID receiving & winner data sending."""
+    global is_connected, client_socket
+
     while True:
+        if not is_connected:
+            print("[INFO] Waiting for connection to be established...")
+            time.sleep(1)
+            continue
+
         try:
-            with socket.create_connection((SERVER_IP, PORT)) as client_socket:
-                print(f"[CONNECTED] Unified Connection to {SERVER_IP}:{PORT}")
+            print("[INFO] Attempting to connect to Raspberry Pi...")
+            client_socket = socket.create_connection((SERVER_IP, PORT))
+            print(f"[CONNECTED] Unified Connection to {SERVER_IP}:{PORT}")
+            socketio.emit('connection_status', {'status': 'connected'})
 
-                # Start RFID listener using the same socket
-                rfid_thread = threading.Thread(target=receive_rfid_data, args=(client_socket,), daemon=True)
-                rfid_thread.start()
+            # Start RFID receive thread
+            rfid_thread = threading.Thread(target=receive_rfid_data, args=(client_socket,), daemon=True)
+            rfid_thread.start()
 
-                while True:
-                    # Check for new winner data
-                    if not winner_queue.empty():
-                        data = winner_queue.get()
-                        if data is None:
-                            break  # Stop if needed
-
-                        json_data = json.dumps(data)
-                        print(f"[DEBUG] Sending Winner Data: {json_data}")
-                        client_socket.sendall(json_data.encode("utf-8"))
-
-                        # Optional response from server
-                        response = client_socket.recv(1024).decode("utf-8").strip()
-                        print(f"[SERVER RESPONSE] {response}")
-
-                        winner_queue.task_done()
+            while is_connected:
+                time.sleep(0.1)
 
         except (socket.error, ConnectionRefusedError) as e:
-            print(f"[ERROR] Connection lost. Retrying in 5 seconds... ({e})")
+            print(f"[ERROR] Connection lost: {e}")
+            socketio.emit('connection_status', {'status': 'disconnected'})
+            is_connected = False
             time.sleep(5)
-
-            
-
-
-### --- 🔥 RECEIVE RFID DATA FROM THE SAME CONNECTION --- ###
-def receive_rfid_data(client_socket):
-    """Read RFID data from the server using the same connection."""
-    try:
-        while True:
-            data = client_socket.recv(1024).decode().strip()
-            if not data:
-                break  # Server disconnected
-            print(f"[RFID] {data}")
-            socketio.emit("rfid_data", {"rfid": data})
-    except (socket.error, ConnectionResetError) as e:
-        print(f"[ERROR] RFID receiving stopped: {e}")
-
-
-### --- 🔥 SOCKET EVENT HANDLING --- ###
-@socketio.on("winner_displayed", namespace="/")
-def handle_winner_display(data):
-    print(f"[SOCKET EVENT] Winner announced: {data}")
-
-    # Broadcast to all connected clients
-    emit("winner_displayed", data, broadcast=True)
-
-    # Queue the winner data to be sent
-    winner = data.get("winner")
-    winner_data = data.get("winnerData", {})
-    send_winner_data(winner, winner_data)
-
-
-def send_winner_data(winner, winner_data=None):
-    """Queue winner data for background processing."""
-    data = {"winner": winner}
-    if winner_data:
-        data["winnerData"] = winner_data
-
-    print(f"[DEBUG] Queuing Winner Data: {data}")
-    winner_queue.put(data)  # Add data to the queue
-
-### --- 🔥 SOCKET EVENT HANDLING --- ###
-@socketio.on("winner_displayed", namespace="/")
-def handle_winner_display(data):
-    print(f"[SOCKET EVENT] Winner announced: {data}")
-
-    # Broadcast to all connected clients
-    emit("winner_displayed", data, broadcast=True)
-
-    # Queue the winner data to be sent
-    winner = data.get("winner")
-    winner_data = data.get("winnerData", {})
-    send_winner_data(winner, winner_data)
-
-
-def send_winner_data(winner, winner_data=None):
-    """Queue winner data for background processing."""
-    data = {"winner": winner}
-    if winner_data:
-        data["winnerData"] = winner_data
-
-    print(f"[DEBUG] Queuing winner data: {data}")
-    winner_queue.put(data)  # Add data to the queue
-
-@app.route('/start_recording', methods=['POST'])
-def start_recording():
-    try:
-        # Receive data from client
-        data = request.get_json()
-        player1 = data.get('player1')
-        player2 = data.get('player2')
-
-        if not player1 or not player2:
-            return jsonify({'message': 'Player RFID data is missing', 'status': 'error'}), 400
-
-        # Forwarding the data to Raspberry Pi
-        raspberry_pi_ip = 'http://192.168.100.54:5000/receive'
-        response = requests.post(raspberry_pi_ip, json={'player1': player1, 'player2': player2})
-
-        # Returning the response from Raspberry Pi
-        return jsonify({'message': 'Recording started', 'status': 'success', 'response': response.json()})
-
-    except Exception as e:
-        return jsonify({'message': 'Internal server error', 'status': 'error', 'error': str(e)}), 500
     
-@app.route('/start_recording2', methods=['POST'])
-def start_recording2():
+
+
+
+@socketio.on('start_connection')
+@login_required
+def start_connection():
+    global is_connected
+    print("Attempting to connect to Raspberry Pi...")
+
     try:
-        # Receive data from client
-        data = request.get_json()
-        player1 = data.get('player1')
-        player2 = data.get('player2')
-
-        if not player1 or not player2:
-            return jsonify({'message': 'Player RFID data is missing', 'status': 'error'}), 400
-
-        # Forwarding the data to Raspberry Pi
-        raspberry_pi_ip = 'http://192.168.100.54:5000/receive2'
-        response = requests.post(raspberry_pi_ip, json={'player1': player1, 'player2': player2})
-
-        # Returning the response from Raspberry Pi
-        return jsonify({'message': 'Recording started', 'status': 'success', 'response': response.json()})
-
+        # Simulate connection logic
+        time.sleep(2)  # Simulate connection time
+        print("Connected to Raspberry Pi")
+        
+        # Emit connected status
+        socketio.emit('connection_status', {'status': 'connected'})
+        is_connected = True  # Update connection state
     except Exception as e:
-        return jsonify({'message': 'Internal server error', 'status': 'error', 'error': str(e)}), 500
+        print(f"Connection failed: {e}")
+        socketio.emit('connection_status', {'status': 'disconnected'})
+        is_connected = False  # Update connection state
 
+@socketio.on('disconnect_request')
+@login_required
+def handle_disconnect_request():
+    global is_connected
+    print("[INFO] Disconnect requested (page refresh/close).")
+    is_connected = False
+    socketio.emit('connection_status', {'status': 'disconnected'})
+
+
+def receive_rfid_data(client_socket):
+    """Receiver thread to handle incoming RFID or server messages."""
+    global is_connected
+    while True:
+        try:
+            data = client_socket.recv(1024)
+            if not data:
+                print("[DISCONNECTED] Server closed connection.")
+                socketio.emit('connection_status', {'status': 'disconnected'})
+                is_connected = False
+                break
+            decoded_data = data.decode('utf-8').strip()
+            print(f"[INCOMING] {decoded_data}")
+
+            # 🔥 Emit to the web clients
+            socketio.emit("rfid_data", {"rfid": decoded_data})
+
+        except Exception as e:
+            print(f"[RECEIVE ERROR] {e}")
+            break
+
+
+
+
+### --- 🔥 SOCKET EVENT HANDLING --- ###
+@socketio.on("winner_displayed", namespace="/")
+@login_required
+def handle_winner_display(data):
+    print(f"[SOCKET EVENT] Winner announced: {data}")
+
+    # Broadcast to all connected clients
+    emit("winner_displayed", data, broadcast=True)
+
+    # Queue the winner data to be sent
+    winner = data.get("winner")
+    winner_data = data.get("winnerData", {})
+    send_winner_data(winner, winner_data)
+
+
+def send_winner_data(winner, winner_data=None):
+    if client_socket:
+        try:
+            data = {"winner": winner}
+            if winner_data:
+                data["winnerData"] = winner_data
+
+            json_data = json.dumps(data)
+            client_socket.sendall(json_data.encode("utf-8"))
+         
+        except Exception as e:
+            print(f"[SEND ERROR] Failed to send winner data: {e}")
+
+
+
+
+
+
+"""=======================Recording========================"""
+@socketio.on("player_started", namespace="/")
+@login_required
+def handle_player_started(data):
+    """Handle when a player starts the game."""
+    print(f"[SOCKET EVENT] Player {data.get('player')} started: {data}")
+
+    # Broadcast to all connected clients
+    emit("player_started", data, broadcast=True)
+
+    # Queue the player start data to be sent
+    player = data.get("player")
+    player_data = data.get("playerData", {})
+    send_player_start_data(player, player_data)
+
+
+def send_player_start_data(player, player_data=None):
+    if client_socket:
+        try:
+            data = {"player": player}
+            if player_data:
+                data["playerData"] = player_data
+
+            json_data = json.dumps(data)
+            client_socket.sendall(json_data.encode("utf-8"))
+           
+
+
+        except Exception as e:
+            print(f"[SEND ERROR] Failed to send player start data: {e}")
+
+
+
+"""=======================Recording========================"""
 
 # GET all status entries
 @app.route('/api/overview')
+@login_required
 def get_status():
     """Fetch all status data (overview)."""
     try:
@@ -502,6 +519,7 @@ def get_status():
 
 # DELETE all status entries
 @app.route("/api/overview/clear", methods=["DELETE"])
+@login_required
 def clear_status():
     """Remove all status entries (after archiving or resetting)."""
     try:
@@ -512,6 +530,7 @@ def clear_status():
 
 
 @app.route("/api/players/clear", methods=["DELETE"])
+@login_required
 def clear_players():
     """Remove all players after archiving."""
     try:
@@ -540,17 +559,6 @@ def get_files(folder_id=ROOT_FOLDER_ID):
         print(f"❌ Error retrieving files: {e}")  # Debugging
         return []
 
-
-# Authentication Middleware
-def login_required(f):
-    @wraps(f)
-    def wrap(*args, **kwargs):
-        session.permanent = False  # Ensure session is non-permanent per request
-        if 'logged_in' in session:
-            return f(*args, **kwargs)
-        else:
-            return redirect('/')
-    return wrap
 
 
 # Routes
@@ -729,4 +737,4 @@ def credentials_to_dict(credentials):
 
 if __name__ == '__main__':
     socketio.start_background_task(target=rfid_and_winner_handler)
-    socketio.run(app, host="0.0.0.0", port=6000) 
+    socketio.run(app, host="0.0.0.0", port=5000) 

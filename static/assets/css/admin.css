@@ -31,6 +31,7 @@ body {
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
   border-radius: 15px;
 }
+
 .container-nav-circle {
   width: 100%;
   display: flex;
@@ -75,7 +76,6 @@ h1 {
 
 .container-nav-circle:hover h1 {
   color: var(--secondary-color);
-  transition: color 0.3s ease-in-out;
 }
 
 .container-sidebar h1 {
@@ -103,6 +103,7 @@ h1 {
   border-radius: 50%;
   display: inline-block;
 }
+
 
 /*navbar*/
 .container-navbar {

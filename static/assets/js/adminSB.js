@@ -8,11 +8,25 @@ document.addEventListener("DOMContentLoaded", function () {
   let gameNumber = 1; // Global game counter
 
   socket.on("rfid_data", function (data) {
-    if (isScoringActive || !waitingForRFID) return;
-
+    if (!waitingForRFID) {
+      console.warn("RFID scan ignored — not waiting for a player.");
+      return;
+    }
+  
+    if (isScoringActive) return;
+  
     const rfid = data.rfid;
     console.log("RFID Scanned:", rfid);
-
+  
+    // Duplicate check here:
+    for (const key in registeredRFIDs) {
+      if (registeredRFIDs[key] === rfid) {
+        alert(`RFID already registered to Player ${key}. Use a different tag.`);
+        resetRegisterButton(waitingForRFID);
+        return;
+      }
+    }
+  
     fetch(`/get_player/${rfid}`)
       .then((response) => response.json())
       .then((player) => {
@@ -21,85 +35,19 @@ document.addEventListener("DOMContentLoaded", function () {
           resetRegisterButton(waitingForRFID);
           return;
         }
-
-        for (const key in registeredRFIDs) {
-          if (registeredRFIDs[key] === rfid) {
-            alert(`This RFID is already registered to Player ${key}!`);
-            resetRegisterButton(waitingForRFID);
-            return;
-          }
-        }
-
+  
         if (registeredRFIDs[waitingForRFID]) {
           unregisterPlayer(waitingForRFID);
         }
-
+  
         assignPlayer(waitingForRFID, rfid, player);
         resetRegisterButton(waitingForRFID);
-
-        // 🔴 Broadcast the update to the audience
         socket.emit("update_audience", { registeredRFIDs });
       })
       .catch((error) => console.error("Error fetching player:", error));
-    console.log("Player1:", registeredRFIDs[1], "Player2:", registeredRFIDs[2]);
   });
+  
 
-  /* document.getElementById("start-recording").addEventListener("click", function () {
-        const player1Name = document.getElementById("player1-name").innerText;
-        const player2Name = document.getElementById("player2-name").innerText;
-    
-        if (!player1Name || !player2Name) {
-            alert("Both players must be registered before recording!");
-            return;
-        }
-    
-        fetch("http://127.0.0.1:5000/start_recording", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                player1: player1Name,  // Send player names instead of RFID
-                player2: player2Name
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === "success") {
-                console.log(`Recording started for ${player1Name} and ${player2Name}!`);
-            } else {
-                alert("Error starting recording on Raspberry Pi.");
-            }
-        })
-        .catch(error => console.error("Error:", error));
-    });
-    
-
-    document.getElementById("start-recording2").addEventListener("click", function () {
-        const player1Name = document.getElementById("player1-name").innerText;
-        const player2Name = document.getElementById("player2-name").innerText;
-    
-        if (!player1Name || !player2Name) {
-            alert("Both players must be registered before recording!");
-            return;
-        }
-    
-        fetch("http://127.0.0.1:5000/start_recording2", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                player1: player1Name,  
-                player2: player2Name
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === "success") {
-                console.log(`Recording started for ${player1Name} and ${player2Name}!`);
-            } else {
-                alert("Error starting recording on Raspberry Pi.");
-            }
-        })
-        .catch(error => console.error("Error:", error));
-    });  */
 
   function assignPlayer(playerNumber, rfid, player) {
     updatePlayerInfo(playerNumber, player);
@@ -127,9 +75,8 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function updatePlayerInfo(playerNumber, player) {
-    const fullName = `${player.firstname || ""} ${player.middlename || ""} ${
-      player.lastname || ""
-    }`.trim();
+    const fullName = `${player.firstname || ""} ${player.middlename || ""} ${player.lastname || ""
+      }`.trim();
 
     document.getElementById(`player${playerNumber}-name`).innerText =
       fullName || "Not Registered";
@@ -497,70 +444,58 @@ document.addEventListener("DOMContentLoaded", function () {
     socket.emit("game_state", { state: "waiting-reset" });
   });
 
-  document
-    .querySelector(".player1-start")
-    .addEventListener("click", function () {
-      if (!registeredRFIDs[1]) {
-        alert("Error: Player 1 must be registered before starting!");
-        return;
+
+  //======================================start========================================
+
+  document.querySelector(".player1-start").addEventListener("click", function () {
+    if (!registeredRFIDs[1]) {
+      alert("Error: Player 1 must be registered before starting!");
+      return;
+    }
+    if (!registeredRFIDs[2]) {
+      alert("Error: Player 2 must be registered before starting!");
+      return;
+    }
+    document.querySelectorAll("button").forEach((btn) => {
+      if (!btn.classList.contains("player1-submit")) {
+        btn.disabled = true;
       }
-
-      if (!registeredRFIDs[2]) {
-        alert("Error: Player 2 must be registered before starting!");
-        return;
-      }
-
-      // 🔒 Disable all buttons except .player1-submit
-      document.querySelectorAll("button").forEach((btn) => {
-        if (!btn.classList.contains("player1-submit")) {
-          btn.disabled = true;
-        }
-      });
-
-      generateRandomScores(1);
-
-      const playerData = {
-        playerName: document.getElementById("player1-name").innerText,
-        category: document.getElementById("player1-category").innerText,
-        belt: document.getElementById("player1-belt").innerText,
-        gym: document.getElementById("player1-gym").innerText,
-        performance: document.getElementById("player1-performing").innerText,
-      };
-      console.log("Sending player 1 data:", playerData);
-      socket.emit("start_game", playerData);
-
-      socket.emit("game_state", { state: "player-container" });
     });
 
-  document.querySelector(".player1-start").addEventListener("click", () => {
-    fetch("/start_recording", { method: "POST" })
-      .then((response) => response.json())
-      .then((data) => console.log(data.status))
-      .catch((error) => console.error("Error starting recording:", error));
+    generateRandomScores(1);
+
+    const playerData = {
+      playerName: document.getElementById("player1-name").innerText,
+      category: document.getElementById("player1-category").innerText,
+      belt: document.getElementById("player1-belt").innerText,
+      gym: document.getElementById("player1-gym").innerText,
+      performance: document.getElementById("player1-performing").innerText,
+    };
+    console.log("Sending player 1 data:", playerData);
+    socket.emit("start_game", playerData);
+    socket.emit("game_state", { state: "player-container" });
+    socket.emit("player_started", { player: 1, playerData });
   });
 
-  document
-    .querySelector(".player2-start")
-    .addEventListener("click", function () {
-      if (!playerStarted[1] && !playerSubmitted[1]) {
-        alert("Player 1 must start before Player 2!");
-        return;
-      } else {
-        generateRandomScores(2);
+  document.querySelector(".player2-start").addEventListener("click", function () {
+    if (!playerStarted[1] && !playerSubmitted[1]) {
+      alert("Player 1 must start before Player 2!");
+      return;
+    }
+    generateRandomScores(2);
 
-        socket.emit("game_state", { state: "player-container" });
+    const playerData = {
+      playerName: document.getElementById("player2-name").innerText,
+      category: document.getElementById("player2-category").innerText,
+      belt: document.getElementById("player2-belt").innerText,
+      gym: document.getElementById("player2-gym").innerText,
+      performance: document.getElementById("player2-performing").innerText,
+    };
+    
+    socket.emit("start_game", playerData);
+    socket.emit("player_started", { player: 2, playerData });
+  });
 
-        const playerData = {
-          playerName: document.getElementById("player2-name").innerText,
-          category: document.getElementById("player2-category").innerText,
-          belt: document.getElementById("player2-belt").innerText,
-          gym: document.getElementById("player2-gym").innerText,
-          performance: document.getElementById("player2-performing").innerText,
-        };
-        console.log("Sending player data:", playerData); // Debugging
-        socket.emit("start_game", playerData);
-      }
-    });
 
-  //=================================================================================================
-});
+  //======================================start========================================
+  });
