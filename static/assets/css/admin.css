@@ -105,7 +105,7 @@ h1 {
 }
 .poomsae-content {
   background-color: var(--primary-color);
-  height: 80vh;
+  height: 75dvh;
   width: auto;
   min-width: 650px; /* change */
   padding: 20px;
@@ -114,6 +114,8 @@ h1 {
 }
 
 .poomsae-content h2 {
+  margin-top: 0;
+  margin-bottom: 0;
   font-size: 30px;
   color: var(--white);
 }
@@ -144,10 +146,11 @@ h1 {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  margin-top: 20px;
-  padding: 20px;
+  margin-top: 5px;
+  padding: 5px;
   background-color: var(--primary-color-light);
   border-radius: 10px;
+  height: 53dvh;
 }
 
 .display-steps h3 {
@@ -162,7 +165,7 @@ h1 {
   align-items: center;
   gap: 10px;
   overflow-y: auto;
-  max-height: 52vh;
+  max-height: 50dvh;
 }
 .form-steps img {
   width: 200px;
@@ -825,4 +828,17 @@ select.field {
 
 .btn-submit:hover:not(:disabled) {
   background: var(--secondary-color);
+}
+
+/* Add or update this rule for the trivia carousel */
+.poomsae-trivia-carousel {
+  font-size: 21px !important;
+}
+
+.poomsae-trivia-carousel h3 {
+  font-size: 28px !important;
+}
+
+.poomsae-trivia-carousel #trivia-indicator {
+  font-size: 17px !important;
 }

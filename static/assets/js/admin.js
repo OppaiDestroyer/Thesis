@@ -107,7 +107,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 
-  // Dynamic Poomsae Image Loading
+  // Dynamic Poomsae Image Loading (REPLACE the old poomsae button logic with this)
   const formList = [
     {
       id: "iljang",
@@ -663,50 +663,244 @@ document.addEventListener("DOMContentLoaded", function () {
   const buttonsContainer = document.getElementById("poomsae-buttons");
   const displayContainer = document.getElementById("poomsae-display");
 
-  formList.forEach((form) => {
-    const btn = document.createElement("button");
-    btn.textContent = form.label;
-    btn.classList.add("form-btn");
+  // Helper: Split forms into Taeguk and Blackbelt
+  const taegukForms = formList.filter((f) => /^Taeguk \d Jang$/.test(f.label));
+  const blackbeltForms = formList.filter((f) =>
+    ["Koryo", "Keumgang", "Taebaek", "Pyongwon", "Sipjin"].includes(f.label)
+  );
 
-    btn.addEventListener("click", () => {
-      // Clear existing content
-      displayContainer.innerHTML = "";
+  // Create main group buttons
+  const taegukBtn = document.createElement("button");
+  taegukBtn.textContent = "Taeguk Forms";
+  taegukBtn.classList.add("form-btn");
 
-      // Create and add title
-      const title = document.createElement("h3");
-      title.textContent = `${form.label} - Step by Step`;
-      displayContainer.appendChild(title);
+  const blackbeltBtn = document.createElement("button");
+  blackbeltBtn.textContent = "Blackbelt Forms";
+  blackbeltBtn.classList.add("form-btn");
 
-      // Create and add steps-holder container
-      const stepsHolder = document.createElement("div");
-      stepsHolder.id = "steps-holder";
-      stepsHolder.classList.add("steps-holder-container");
-      displayContainer.appendChild(stepsHolder);
+  // Back button (hidden by default)
+  const backBtn = document.createElement("button");
+  backBtn.innerHTML = '<i class="fas fa-arrow-left"></i>'; // Icon instead of text
+  backBtn.classList.add("form-btn");
+  backBtn.style.display = "none";
+  backBtn.style.marginBottom = "10px";
+  buttonsContainer.appendChild(backBtn);
 
-      // Determine number of steps
-      const stepCount = form.steps ? form.steps.length : form.totalSteps;
+  // Show main group buttons
+  function showMainButtons() {
+    // Remove all sub-form buttons
+    Array.from(buttonsContainer.querySelectorAll(".sub-form-btn")).forEach(
+      (btn) => btn.remove()
+    );
+    backBtn.style.display = "none";
+    taegukBtn.style.display = "inline-block";
+    blackbeltBtn.style.display = "inline-block";
 
-      for (let i = 0; i < stepCount; i++) {
-        const imgContainer = document.createElement("div");
-        imgContainer.classList.add("image-container");
+    // Trivia data as array of HTML strings
+    const triviaList = [
+      `<b>Original Poomsae Names Were Koreanized Later</b><br>
+      The Taegeuk and Black Belt forms (like Koryo, Keumgang) were named in Korean to reflect national identity—prior to that, Japanese-style kata names were used during Japanese occupation.`,
+      `<b>Taegeuk Forms Follow the Trigram Philosophy</b><br>
+      Each Taegeuk form is based on a geongweon (trigram) from the I Ching, representing nature and philosophy. For instance, Taegeuk 1 (Il Jang) represents heaven.`,
+      `<b>Black Belt Forms Are Based on Historical Figures and Concepts</b><br>
+      Forms like Koryo, Keumgang, Taebaek represent ideals and people from Korean history:<br>
+      <b>Koryo</b> = a dynasty known for its strong will<br>
+      <b>Keumgang</b> = "diamond" and a sacred mountain`,
+      `<b>Stances in Poomsae Have Symbolic Meaning</b><br>
+      For example, Tiger stance (Beom Seogi) reflects readiness and alertness—used in Taebaek and Sipjin.`,
+      `<b>There’s a Secret Poomsae Called ‘Hansoo’</b><br>
+      Though not taught widely, Hansoo is a high-level black belt form focusing on water's adaptability. It’s part of the Kukkiwon high-dan poomsae set.`,
+      `<b>Most Poomsae Are Designed for Solo Combat Simulation</b><br>
+      Movements mimic blocks and counters against imagined opponents from various directions—often symbolizing multiple attackers.`,
+      `<b>Every Turn in Poomsae Has Tactical Logic</b><br>
+      The turning isn't just aesthetic—it simulates evading or repositioning against a new attacker.`,
+      `<b>Many Movements Come From Traditional Korean Swordplay</b><br>
+      Certain open-hand blocks and strikes (e.g., arc hand, double knife-hand) mirror traditional Korean martial arts like Gumdo.`,
+      `<b>Poomsae Can Be Practiced as Meditation</b><br>
+      Advanced practitioners use poomsae as a form of moving meditation, syncing breathing and energy flow (ki or chi).`,
+      `<b>Poomsae Can Reflect Personal Emotions and States</b><br>
+      Grandmasters encourage black belts to perform poomsae with "shin jeong" (spirit and mind)—meaning each performance can differ subtly in rhythm and power.`,
+      `<b>Some Forms Include Pressure Point Targeting</b><br>
+      Movements such as palm strikes or ridge-hand strikes aim for vital points (e.g., jaw hinge, neck artery), though this is rarely emphasized in early training.`,
+      `<b>Keumgang Poomsae Uses Animal Symbolism</b><br>
+      Inspired by the strength of the mountain tiger, it incorporates movements with strong groundedness and explosive power.`,
+      `<b>There Are Over 30 Recognized Kukkiwon Poomsae</b><br>
+      While most schools teach up to 17 poomsae, the full Kukkiwon list includes high-level forms like Hansoo, Ilyeo, and Cheonkwon used up to 9th Dan.`,
+      `<b>The Rhythm of a Poomsae Is As Important as the Movements</b><br>
+      Each form has a hidden tempo—some require slow-flowing motion (e.g., breathing blocks), others use sharp-explosive bursts (e.g., Taebaek).`,
+      `<b>Poomsae Execution Varies by Region and Master</b><br>
+      Subtle changes in stances, block angles, and timing exist due to different master interpretations—even among Kukkiwon-certified instructors.`,
+      `<b>Taekwondo Poomsae Once Competed with Karate Kata for Identity</b><br>
+      Post-Korean War, there was a movement to replace Japanese kata with indigenous Korean forms, leading to the unified poomsae system.`,
+      `<b>High-Level Poomsae Have Hidden Breathwork (Ho Hup)</b><br>
+      Forms like Jitae and Ilyeo integrate controlled breathing techniques to manage internal energy (ki), though rarely taught until 5th Dan+.`,
+      `<b>The Footwork in Poomsae Reflects Hwarang Battle Formations</b><br>
+      Historical influence from Hwarang warriors contributed to the use of angular movements and direct lines in advanced poomsae.`,
+      `<b>Poomsae Is Used as a Diagnostic Tool</b><br>
+      Masters often assess not just form correctness, but psychological state, discipline, and emotional control through how a student performs poomsae.`,
+      `<b>There’s a Poomsae Called ‘Ilyeo’ That Represents Nirvana</b><br>
+      The final 9th Dan form, Ilyeo, symbolizes unity of mind and body—it’s almost purely spiritual and is practiced with extreme internal focus.`,
+    ];
 
-        const img = document.createElement("img");
-        img.src = `../static/assets/images/poomsae/${form.id}/${i + 1}.jpg`;
-        img.alt = `Step ${i + 1}`;
-        img.classList.add("step-image");
+    let currentTrivia = 0;
 
-        const text = document.createElement("span");
-        text.textContent = form.steps ? form.steps[i] : `Step ${i + 1}`;
-        text.classList.add("hover-text");
+    // Carousel HTML with next/prev buttons
+    displayContainer.innerHTML = `
+      <div class="poomsae-trivia-carousel" style="
+        text-align:left;
+        max-width:700px;
+        margin:auto;
+        color:var(--text-light);
+        font-size:15px;
+        min-height:120px;
+        max-height:350px;
+        overflow-y:auto;
+        padding-right:10px;
+        display:flex;
+        flex-direction:column;
+        align-items:center;
+        justify-content:center;
+      ">
+        <h3 style="color:var(--secondary-color);margin-bottom:10px;">Lesser-Known Trivia About Poomsae Taekwondo</h3>
+        <div id="trivia-slide" style="transition:opacity 0.5s;">
+          <div>${triviaList[0]}</div>
+        </div>
+        <div style="margin-top:10px; display:flex; align-items:center; gap:10px;">
+          <button id="trivia-prev" style="background:var(--secondary-color-dark);color:white;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;">
+            <i class="fas fa-arrow-left"></i>
+          </button>
+          <span id="trivia-indicator" style="font-size:13px;color:var(--secondary-color);"></span>
+          <button id="trivia-next" style="background:var(--secondary-color-dark);color:white;border:none;border-radius:4px;padding:4px 10px;cursor:pointer;">
+            <i class="fas fa-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+    `;
 
-        imgContainer.appendChild(img);
-        imgContainer.appendChild(text);
-        stepsHolder.appendChild(imgContainer); // Append image container to steps-holder
+    function updateIndicator(idx) {
+      const indicator = document.getElementById("trivia-indicator");
+      indicator.textContent = `Trivia ${idx + 1} of ${triviaList.length}`;
+    }
+    updateIndicator(currentTrivia);
+
+    function showTrivia(idx) {
+      const slide = document.getElementById("trivia-slide");
+      if (slide) {
+        slide.style.opacity = 0;
+        setTimeout(() => {
+          slide.innerHTML = `<div>${triviaList[idx]}</div>`;
+          slide.style.opacity = 1;
+          updateIndicator(idx);
+        }, 400);
       }
-    });
+    }
 
-    buttonsContainer.appendChild(btn);
-  });
+    // Carousel logic
+    function goNext() {
+      currentTrivia = (currentTrivia + 1) % triviaList.length;
+      showTrivia(currentTrivia);
+      resetInterval();
+    }
+    function goPrev() {
+      currentTrivia =
+        (currentTrivia - 1 + triviaList.length) % triviaList.length;
+      showTrivia(currentTrivia);
+      resetInterval();
+    }
+    function resetInterval() {
+      if (triviaInterval) clearInterval(triviaInterval);
+      triviaInterval = setInterval(goNext, 5000);
+    }
+
+    // Attach button events
+    document.getElementById("trivia-next").onclick = goNext;
+    document.getElementById("trivia-prev").onclick = goPrev;
+
+    // Keyboard navigation
+    document.onkeydown = function (e) {
+      // Only respond if trivia is visible
+      if (displayContainer.contains(document.getElementById("trivia-slide"))) {
+        if (e.key === "ArrowRight") {
+          goNext();
+        } else if (e.key === "ArrowLeft") {
+          goPrev();
+        }
+      }
+    };
+
+    // Start auto-advance
+    resetInterval();
+  }
+
+  // Show sub-form buttons
+  function showForms(forms) {
+    // Remove any previous sub-buttons
+    Array.from(buttonsContainer.querySelectorAll(".sub-form-btn")).forEach(
+      (btn) => btn.remove()
+    );
+    taegukBtn.style.display = "none";
+    blackbeltBtn.style.display = "none";
+    backBtn.style.display = "inline-block";
+    displayContainer.innerHTML = "";
+
+    forms.forEach((form) => {
+      const btn = document.createElement("button");
+      btn.textContent = form.label;
+      btn.classList.add("form-btn", "sub-form-btn");
+      btn.style.marginLeft = "10px";
+      btn.addEventListener("click", () => {
+        // Clear existing content
+        displayContainer.innerHTML = "";
+
+        // Create and add title
+        const title = document.createElement("h3");
+        title.textContent = `${form.label} - Step by Step`;
+        displayContainer.appendChild(title);
+
+        // Create and add steps-holder container
+        const stepsHolder = document.createElement("div");
+        stepsHolder.id = "steps-holder";
+        stepsHolder.classList.add("steps-holder-container");
+        displayContainer.appendChild(stepsHolder);
+
+        // Determine number of steps
+        const stepCount = form.steps ? form.steps.length : form.totalSteps;
+
+        for (let i = 0; i < stepCount; i++) {
+          const imgContainer = document.createElement("div");
+          imgContainer.classList.add("image-container");
+
+          const img = document.createElement("img");
+          img.src = `../static/assets/images/poomsae/${form.id}/${i + 1}.jpg`;
+          img.alt = `Step ${i + 1}`;
+          img.classList.add("step-image");
+
+          const text = document.createElement("span");
+          text.textContent = form.steps ? form.steps[i] : `Step ${i + 1}`;
+          text.classList.add("hover-text");
+
+          imgContainer.appendChild(img);
+          imgContainer.appendChild(text);
+          stepsHolder.appendChild(imgContainer);
+        }
+      });
+      buttonsContainer.appendChild(btn);
+    });
+  }
+
+  // Add main buttons to container
+  buttonsContainer.appendChild(taegukBtn);
+  buttonsContainer.appendChild(blackbeltBtn);
+
+  // Main button click events
+  taegukBtn.addEventListener("click", () => showForms(taegukForms));
+  blackbeltBtn.addEventListener("click", () => showForms(blackbeltForms));
+
+  // Back button event
+  backBtn.addEventListener("click", showMainButtons);
+
+  // Show main buttons on load
+  showMainButtons();
 });
 
 //====================================================================================================
