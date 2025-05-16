@@ -32,7 +32,7 @@ app.config['SESSION_PERMANENT'] = False  # Ensure session expires on browser clo
 app.register_blueprint(user_bp, url_prefix='/api')
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
-SERVER_IP = "raspberrypi"  # Change this to match your setup
+SERVER_IP = "rpi1.local"
 PORT = 10000
 appConf = {
     "OAUTH2_CLIENT_ID": os.environ.get("OAUTH2_CLIENT_ID"),
@@ -353,7 +353,8 @@ def handle_update_score(data):
 
 # Global state to track connection status
 is_connected = False
-client_socket = None  # Global socket variable
+client_socket = None
+client_socket2 = None  # Global socket variable
 def rfid_and_winner_handler():
     global is_connected, client_socket
 
