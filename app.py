@@ -351,6 +351,7 @@ def handle_update_score(data):
     print("Received updated score:", data)  # Debugging
     emit("update_score", data, broadcast=True)
 
+
 # Global state to track connection status
 is_connected = False
 client_socket = None
@@ -370,9 +371,9 @@ def rfid_and_winner_handler():
             print(f"[CONNECTED] Unified Connection to {SERVER_IP}:{PORT}")
             socketio.emit('connection_status', {'status': 'connected'})
 
-            # Start RFID receive thread
-            rfid_thread = threading.Thread(target=receive_rfid_data, args=(client_socket,), daemon=True)
-            rfid_thread.start()
+            # Start unified receive thread
+            receive_thread = threading.Thread(target=receive_data, args=(client_socket,), daemon=True)
+            receive_thread.start()
 
             while is_connected:
                 time.sleep(0.1)
@@ -382,9 +383,42 @@ def rfid_and_winner_handler():
             socketio.emit('connection_status', {'status': 'disconnected'})
             is_connected = False
             time.sleep(5)
-    
 
 
+""" def receive_new_score_data(client_socket):
+    #Thread to receive new_score JSON messages and emit via socketio.
+    global is_connected
+    buffer = ""
+    while True:
+        try:
+            data = client_socket.recv(1024)
+            if not data:
+                print("[DISCONNECTED] Server closed connection.")
+                socketio.emit('connection_status', {'status': 'disconnected'})
+                is_connected = False
+                break
+
+            buffer += data.decode('utf-8')
+            while '\n' in buffer:
+                line, buffer = buffer.split('\n', 1)
+                line = line.strip()
+                if not line:
+                    continue
+
+                print(f"[INCOMING SCORE] {line}")
+                try:
+                    msg = json.loads(line)
+                    if msg.get("event") == "new_score" and "data" in msg:
+                        score_data = msg["data"]
+                        socketio.emit("new_score", score_data)
+                        print(f"[EMIT] Emitted new_score for Player {score_data.get('playerNumber')}")
+                except json.JSONDecodeError as e:
+                    print(f"[JSON ERROR] Failed to decode score JSON: {e}")
+
+        except Exception as e:
+            print(f"[RECEIVE ERROR] {e}")
+            break
+ """
 
 @socketio.on('start_connection')
 @login_required
@@ -414,8 +448,8 @@ def handle_disconnect_request():
     socketio.emit('connection_status', {'status': 'disconnected'})
 
 
-def receive_rfid_data(client_socket):
-    """Receiver thread to handle incoming RFID or server messages."""
+""" def receive_rfid_data(client_socket):
+    #Receiver thread to handle incoming RFID or server messages.
     global is_connected
     while True:
         try:
@@ -430,6 +464,49 @@ def receive_rfid_data(client_socket):
 
             # 🔥 Emit to the web clients
             socketio.emit("rfid_data", {"rfid": decoded_data})
+
+        except Exception as e:
+            print(f"[RECEIVE ERROR] {e}")
+            break
+ """
+ 
+def receive_data(client_socket):
+    """Thread to receive data from socket, handle RFID and new_score events, and emit via socketio."""
+    global is_connected
+    buffer = ""
+
+    while True:
+        try:
+            data = client_socket.recv(1024)
+            if not data:
+                print("[DISCONNECTED] Server closed connection.")
+                socketio.emit('connection_status', {'status': 'disconnected'})
+                is_connected = False
+                break
+
+            buffer += data.decode('utf-8')
+            while '\n' in buffer:
+                line, buffer = buffer.split('\n', 1)
+                line = line.strip()
+                if not line:
+                    continue
+
+                # Try to parse as JSON
+                try:
+                    msg = json.loads(line)
+                    if msg.get("event") == "new_score" and "data" in msg:
+                        score_data = msg["data"]
+                        print(f"[INCOMING SCORE] {score_data}")
+                        socketio.emit("new_score", score_data)
+                        print(f"[EMIT] Emitted new_score for Player {score_data.get('playerNumber')}")
+                        continue  # handled, continue to next line
+                except json.JSONDecodeError:
+                    # Not JSON, assume RFID or raw message
+                    pass
+
+                # If not JSON new_score, treat as RFID (or plain message)
+                print(f"[INCOMING RFID or RAW] {line}")
+                socketio.emit("rfid_data", {"rfid": line})
 
         except Exception as e:
             print(f"[RECEIVE ERROR] {e}")

@@ -12,12 +12,12 @@ document.addEventListener("DOMContentLoaded", function () {
       console.warn("RFID scan ignored — not waiting for a player.");
       return;
     }
-  
+
     if (isScoringActive) return;
-  
+
     const rfid = data.rfid;
     console.log("RFID Scanned:", rfid);
-  
+
     // Duplicate check here:
     for (const key in registeredRFIDs) {
       if (registeredRFIDs[key] === rfid) {
@@ -26,7 +26,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
     }
-  
+
     fetch(`/get_player/${rfid}`)
       .then((response) => response.json())
       .then((player) => {
@@ -35,19 +35,17 @@ document.addEventListener("DOMContentLoaded", function () {
           resetRegisterButton(waitingForRFID);
           return;
         }
-  
+
         if (registeredRFIDs[waitingForRFID]) {
           unregisterPlayer(waitingForRFID);
         }
-  
+
         assignPlayer(waitingForRFID, rfid, player);
         resetRegisterButton(waitingForRFID);
         socket.emit("update_audience", { registeredRFIDs });
       })
       .catch((error) => console.error("Error fetching player:", error));
   });
-  
-
 
   function assignPlayer(playerNumber, rfid, player) {
     updatePlayerInfo(playerNumber, player);
@@ -75,8 +73,9 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function updatePlayerInfo(playerNumber, player) {
-    const fullName = `${player.firstname || ""} ${player.middlename || ""} ${player.lastname || ""
-      }`.trim();
+    const fullName = `${player.firstname || ""} ${player.middlename || ""} ${
+      player.lastname || ""
+    }`.trim();
 
     document.getElementById(`player${playerNumber}-name`).innerText =
       fullName || "Not Registered";
@@ -129,24 +128,33 @@ document.addEventListener("DOMContentLoaded", function () {
 
     playerStarted[playerNumber] = true;
     isScoringActive = true;
+
     if (!playerStarted[1] && !playerSubmitted[1]) {
       alert("Player 1 must start before Player 2!");
       return;
     }
 
-    const accuracyScore = (Math.random() * 4).toFixed(1);
-    const presentationScore = (Math.random() * 6).toFixed(1);
+    socket.on(
+      "scoreUpdate",
+      ({ playerNumber, accuracyScore, presentationScore }) => {
+        // ignore if player not in a “started” state
+        if (!playerStarted[player]) return;
 
-    document.getElementById(`player${playerNumber}-accuracy-score`).innerText =
-      accuracyScore;
-    document.getElementById(
-      `player${playerNumber}-presentation-score`
-    ).innerText = presentationScore;
+        document.getElementById(
+          `player${playerNumber}-accuracy-score`
+        ).innerText = accuracyScore.toFixed(1);
+        document.getElementById(
+          `player${playerNumber}-presentation-score`
+        ).innerText = presentationScore.toFixed(1);
 
-    const totalScore =
-      parseFloat(accuracyScore) + parseFloat(presentationScore);
-    document.getElementById(`player${playerNumber}-total-score`).innerText =
-      totalScore.toFixed(1);
+        const totalScore =
+          parseFloat(accuracyScore) + parseFloat(presentationScore);
+        document.getElementById(`player${playerNumber}-total-score`).innerText =
+          totalScore.toFixed(1);
+
+        playerStarted[player] = false;
+      }
+    );
 
     // If currentPerforming is not set, generate it (based on both players’ belt)
     if (!currentPerforming) {
@@ -349,6 +357,29 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById(`player${playerNumber}-submit`).value = "false";
   }
 
+  socket.on(
+    "new_score",
+    ({ playerNumber, accuracyScore, presentationScore }) => {
+      console.log(`[SOCKET] New score received for Player ${playerNumber}`);
+      console.log(
+        `Accuracy: ${accuracyScore}, Presentation: ${presentationScore}`
+      );
+
+      const totalScore =
+        parseFloat(accuracyScore) + parseFloat(presentationScore);
+
+      document.getElementById(
+        `player${playerNumber}-accuracy-score`
+      ).innerText = accuracyScore.toFixed(1);
+      document.getElementById(
+        `player${playerNumber}-presentation-score`
+      ).innerText = presentationScore.toFixed(1);
+      document.getElementById(`player${playerNumber}-total-score`).innerText =
+        totalScore.toFixed(1);
+
+      console.log(`[UI] Scores updated for Player ${playerNumber}`);
+    }
+  );
   function submitScores(playerNumber) {
     // Ensure player is registered and has started
     if (!isPlayerValid(playerNumber)) {
@@ -366,12 +397,11 @@ document.addEventListener("DOMContentLoaded", function () {
     // Mark as submitted
     document.getElementById(`player${playerNumber}-submit`).value = "true";
 
-    // Emit the updated score
+    // Emit the updated score to the server
     socket.emit("update_score", {
       playerNumber: playerNumber,
       accuracy: accuracyScore,
       presentation: presentationScore,
-      total: totalScore,
     });
 
     console.log(`✅ Player ${playerNumber} submitted their score.`);
@@ -444,58 +474,61 @@ document.addEventListener("DOMContentLoaded", function () {
     socket.emit("game_state", { state: "waiting-reset" });
   });
 
-
   //======================================start========================================
 
-  document.querySelector(".player1-start").addEventListener("click", function () {
-    if (!registeredRFIDs[1]) {
-      alert("Error: Player 1 must be registered before starting!");
-      return;
-    }
-    if (!registeredRFIDs[2]) {
-      alert("Error: Player 2 must be registered before starting!");
-      return;
-    }
-    document.querySelectorAll("button").forEach((btn) => {
-      if (!btn.classList.contains("player1-submit")) {
-        btn.disabled = true;
+  document
+    .querySelector(".player1-start")
+    .addEventListener("click", function () {
+      if (!registeredRFIDs[1]) {
+        alert("Error: Player 1 must be registered before starting!");
+        return;
       }
+      if (!registeredRFIDs[2]) {
+        alert("Error: Player 2 must be registered before starting!");
+        return;
+      }
+      document.querySelectorAll("button").forEach((btn) => {
+        if (!btn.classList.contains("player1-submit")) {
+          btn.disabled = true;
+        }
+      });
+
+      generateRandomScores(1);
+
+      const playerData = {
+        playerName: document.getElementById("player1-name").innerText,
+        category: document.getElementById("player1-category").innerText,
+        belt: document.getElementById("player1-belt").innerText,
+        gym: document.getElementById("player1-gym").innerText,
+        performance: document.getElementById("player1-performing").innerText,
+      };
+      console.log("Sending player 1 data:", playerData);
+      socket.emit("start_game", playerData);
+      socket.emit("game_state", { state: "player-container" });
+      socket.emit("player_started", { player: 1, playerData });
     });
 
-    generateRandomScores(1);
+  document
+    .querySelector(".player2-start")
+    .addEventListener("click", function () {
+      if (!playerStarted[1] && !playerSubmitted[1]) {
+        alert("Player 1 must start before Player 2!");
+        return;
+      }
+      generateRandomScores(2);
 
-    const playerData = {
-      playerName: document.getElementById("player1-name").innerText,
-      category: document.getElementById("player1-category").innerText,
-      belt: document.getElementById("player1-belt").innerText,
-      gym: document.getElementById("player1-gym").innerText,
-      performance: document.getElementById("player1-performing").innerText,
-    };
-    console.log("Sending player 1 data:", playerData);
-    socket.emit("start_game", playerData);
-    socket.emit("game_state", { state: "player-container" });
-    socket.emit("player_started", { player: 1, playerData });
-  });
-
-  document.querySelector(".player2-start").addEventListener("click", function () {
-    if (!playerStarted[1] && !playerSubmitted[1]) {
-      alert("Player 1 must start before Player 2!");
-      return;
-    }
-    generateRandomScores(2);
-
-    const playerData = {
-      playerName: document.getElementById("player2-name").innerText,
-      category: document.getElementById("player2-category").innerText,
-      belt: document.getElementById("player2-belt").innerText,
-      gym: document.getElementById("player2-gym").innerText,
-      performance: document.getElementById("player2-performing").innerText,
-    };
-    
-    socket.emit("start_game", playerData);
-    socket.emit("player_started", { player: 2, playerData });
-  });
-
+      const playerData = {
+        playerName: document.getElementById("player2-name").innerText,
+        category: document.getElementById("player2-category").innerText,
+        belt: document.getElementById("player2-belt").innerText,
+        gym: document.getElementById("player2-gym").innerText,
+        performance: document.getElementById("player2-performing").innerText,
+      };
+      console.log("Sending player 2 data:", playerData);
+      socket.emit("game_state", { state: "player-container" });
+      socket.emit("start_game", playerData);
+      socket.emit("player_started", { player: 2, playerData });
+    });
 
   //======================================start========================================
-  });
+});
