@@ -1101,14 +1101,38 @@ async function fetchFiles() {
     const data = await response.json();
     console.log("Server Response:", data); // Debugging output
 
-    if (!Array.isArray(data)) {
-      throw new Error("API response is not an array!");
-    }
-
     recordBox.innerHTML = ""; // Clear previous records
 
-    if (data.length === 0) {
+    if (Array.isArray(data)) {
+      if (data.length === 0) {
+        recordBox.innerHTML = "<p>No files found.</p>";
+        return;
+      }
+      data.forEach((file) => {
+        const div = document.createElement("div");
+        if (file.mimeType === "application/vnd.google-apps.folder") {
+          div.innerHTML = `
+            <i class="fa-solid fa-folder folder-icon" onclick="toggleFolder('${file.id}')"></i>
+            <span class="folder" onclick="toggleFolder('${file.id}')">${file.name}</span>
+          `;
+        } else {
+          div.innerHTML = `
+            <i class="fa-solid fa-file file-icon"></i>
+            <a href="${file.webViewLink}" target="_blank" class="file">${file.name}</a>
+          `;
+        }
+        recordBox.appendChild(div);
+      });
+    } else if (
+      data &&
+      typeof data === "object" &&
+      data.message &&
+      data.message.toLowerCase().includes("no files")
+    ) {
       recordBox.innerHTML = "<p>No files found.</p>";
+      return;
+    } else {
+      recordBox.innerHTML = "<p>Failed to load files.</p>";
       return;
     }
 
@@ -1116,25 +1140,6 @@ async function fetchFiles() {
     if (backButton) {
       backButton.style.display = "none";
     }
-
-    data.forEach((file) => {
-      const div = document.createElement("div");
-
-      if (file.mimeType === "application/vnd.google-apps.folder") {
-        div.innerHTML = `
-          <i class="fa-solid fa-folder folder-icon" onclick="toggleFolder('${file.id}')"></i>
-          <span class="folder" onclick="toggleFolder('${file.id}')">${file.name}</span>
-        `;
-      } else {
-        div.innerHTML = `
-          <i class="fa-solid fa-file file-icon"></i>
-          <a href="${file.webViewLink}" target="_blank" class="file">${file.name}</a>
-        `;
-      }
-      recordBox.appendChild(div);
-    });
-
-    console.log("Record files updated successfully.");
   } catch (error) {
     console.error("Error fetching files:", error);
     recordBox.innerHTML = "<p>Failed to load files.</p>";
@@ -1197,29 +1202,38 @@ function toggleFolder(folderId) {
     .then((data) => {
       recordBox.innerHTML = ""; // Clear the record box
 
-      if (data.length === 0) {
+      if (Array.isArray(data)) {
+        if (data.length === 0) {
+          recordBox.innerHTML = "<p>No files found in this folder.</p>";
+        } else {
+          data.forEach((file) => {
+            const div = document.createElement("div");
+            if (file.mimeType === "application/vnd.google-apps.folder") {
+              div.innerHTML = `
+                <i class="fa-solid fa-folder folder-icon" onclick="toggleFolder('${file.id}')"></i>
+                <span class="folder" onclick="toggleFolder('${file.id}')">${file.name}</span>
+              `;
+            } else {
+              div.innerHTML = `
+                <i class="fa-solid fa-file file-icon"></i>
+                <a href="${file.webViewLink}" target="_blank" class="file">${file.name}</a>
+              `;
+            }
+            recordBox.appendChild(div);
+          });
+        }
+      } else if (
+        data &&
+        typeof data === "object" &&
+        data.message &&
+        data.message.toLowerCase().includes("no files")
+      ) {
         recordBox.innerHTML = "<p>No files found in this folder.</p>";
-        return;
+      } else {
+        recordBox.innerHTML = "<p>Failed to load folder contents.</p>";
       }
 
-      data.forEach((file) => {
-        const div = document.createElement("div");
-
-        if (file.mimeType === "application/vnd.google-apps.folder") {
-          div.innerHTML = `
-            <i class="fa-solid fa-folder folder-icon" onclick="toggleFolder('${file.id}')"></i>
-            <span class="folder" onclick="toggleFolder('${file.id}')">${file.name}</span>
-          `;
-        } else {
-          div.innerHTML = `
-            <i class="fa-solid fa-file file-icon"></i>
-            <a href="${file.webViewLink}" target="_blank" class="file">${file.name}</a>
-          `;
-        }
-        recordBox.appendChild(div);
-      });
-
-      // Show the back button when inside a folder
+      // Always show the back button after loading folder contents
       if (backButton) {
         backButton.style.display = "block";
       }
