@@ -1,3 +1,4 @@
+
 import socket
 import threading
 from flask import Flask, request, render_template, session, redirect, jsonify, make_response, url_for
@@ -269,7 +270,7 @@ def save_game():
             player["timestamp"] = datetime.now()
             db.status.insert_one(player)
 
-        return jsonify({"message": "Game results saved successfully!"}, 201)
+        return jsonify({"message": "Game results saved successfully!"}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -358,13 +359,9 @@ client_socket2 = None  # Global socket variable
 def rfid_and_winner_handler():
     global is_connected, client_socket
 
-    waiting_printed = False  # Add this flag
-
     while True:
         if not is_connected:
-            if not waiting_printed:
-                print("[INFO] Waiting for connection to be established...")
-                waiting_printed = True
+            print("[INFO] Waiting for connection to be established...")
             time.sleep(1)
             continue
 
@@ -373,7 +370,6 @@ def rfid_and_winner_handler():
             client_socket = socket.create_connection((SERVER_IP, PORT))
             print(f"[CONNECTED] Unified Connection to {SERVER_IP}:{PORT}")
             socketio.emit('connection_status', {'status': 'connected'})
-            waiting_printed = False  # Reset flag after connection
 
             # Start unified receive thread
             receive_thread = threading.Thread(target=receive_data, args=(client_socket,), daemon=True)
@@ -819,4 +815,4 @@ def credentials_to_dict(credentials):
 
 if __name__ == '__main__':
     socketio.start_background_task(target=rfid_and_winner_handler)
-    socketio.run(app, host="0.0.0.0", port=5000)
+    socketio.run(app, host="0.0.0.0", port=5000) 

@@ -159,36 +159,52 @@ document.addEventListener("DOMContentLoaded", function () {
     // If currentPerforming is not set, generate it (based on both players’ belt)
     if (!currentPerforming) {
       // Get belt values (assumed to be already set by registration)
-      const belt1 = document
-        .getElementById("player1-belt")
-        .innerText.toLowerCase();
-      const belt2 = document
-        .getElementById("player2-belt")
-        .innerText.toLowerCase();
+      const belt1 = document.getElementById("player1-belt").innerText.trim();
+      const belt2 = document.getElementById("player2-belt").innerText.trim();
 
-      let performingOptions = [];
-      // If both players have black belt, use black performing options; otherwise, use Taeguk options.
-      if (belt1 === "black" && belt2 === "black") {
-        performingOptions = ["Koryo", "Keumgang", "Taebek"];
-      } else {
-        performingOptions = [
-          "Taeguk 1",
-          "Taeguk 2",
-          "Taeguk 3",
-          "Taeguk 4",
-          "Taeguk 5",
-          "Taeguk 6",
-          "Taeguk 7",
-          "Taeguk 8",
-        ];
+      // Check if belts match exactly
+      if (belt1 !== belt2) {
+        alert("Player belts do not match. Unregistering both players.");
+        unregisterPlayer(1);
+        unregisterPlayer(2);
+        return;
       }
-      const randomIndex = Math.floor(Math.random() * performingOptions.length);
-      currentPerforming = performingOptions[randomIndex];
-    }
 
-    // Assign the same performing value to both players
-    document.getElementById("player1-performing").innerText = currentPerforming;
-    document.getElementById("player2-performing").innerText = currentPerforming;
+      // Normalize for comparison
+      const sameBelt = belt1.toLowerCase();
+
+      // Mapping of belt levels to forms
+      const beltToForm = {
+        "low yellow": "Taeguk 1",
+        "high yellow": "Taeguk 2",
+        "low blue": "Taeguk 3",
+        "high blue": "Taeguk 4",
+        "low red": "Taeguk 5",
+        "high red": "Taeguk 6",
+        "low brown": "Taeguk 7",
+        "high brown": "Taeguk 8",
+      };
+
+      // Black belt pool
+      const blackBeltForms = ["Koryo", "Keumgang", "Taebek"];
+
+      // Check if it's a black belt
+      const isBlackBelt = (belt) => belt.toLowerCase().includes("black belt");
+
+      if (isBlackBelt(belt1)) {
+        const randomIndex = Math.floor(Math.random() * blackBeltForms.length);
+        currentPerforming = blackBeltForms[randomIndex];
+      } else {
+        // Use mapped form
+        currentPerforming = beltToForm[sameBelt] || "Taeguk 1"; // fallback if undefined
+      }
+
+      // Assign the same performing value to both players
+      document.getElementById("player1-performing").innerText =
+        currentPerforming;
+      document.getElementById("player2-performing").innerText =
+        currentPerforming;
+    }
   }
 
   function displayWinner() {
@@ -386,25 +402,39 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
-    const accuracyScore = updateScore(playerNumber, "accuracy");
-    const presentationScore = updateScore(playerNumber, "presentation");
+    const accuracyScore = Number(updateScore(playerNumber, "accuracy")) || 0;
+    const presentationScore =
+      Number(updateScore(playerNumber, "presentation")) || 0;
 
     // Calculate total score and update
     const totalScore = accuracyScore + presentationScore;
     document.getElementById(`player${playerNumber}-total-score`).innerText =
-      totalScore.toFixed(1);
+      totalScore.toFixed(2);
 
     // Mark as submitted
     document.getElementById(`player${playerNumber}-submit`).value = "true";
 
-    // Emit the updated score to the server
+    // Disable the submit button
+    const submitBtn = document.getElementById(
+      `player${playerNumber}-submit-btn`
+    );
+    if (submitBtn) {
+      submitBtn.disabled = true;
+    }
+
+    // Emit the updated score to the server, including total
     socket.emit("update_score", {
       playerNumber: playerNumber,
       accuracy: accuracyScore,
       presentation: presentationScore,
+      total: totalScore,
     });
 
-    console.log(`✅ Player ${playerNumber} submitted their score.`);
+    console.log(`✅ Player ${playerNumber} submitted their score.`, {
+      accuracy: accuracyScore,
+      presentation: presentationScore,
+      total: totalScore,
+    });
   }
 
   function isPlayerValid(playerNumber) {

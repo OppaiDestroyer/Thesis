@@ -7,23 +7,6 @@ socket.on("connect", function () {
 socket.on("game_state", function (data) {
   console.log("Received game state:", data.state);
 
-
-if (data.state === "waiting-start") {
-nextStep('waiting-players', 'waiting-start');
-    }
-    else if (data.state === "player-container") {
-        nextStep("waiting-start", "player-container");
-    }
-    else if (data.state === "waiting-result") {
-        nextStep("player-container", "waiting-result");
-    }
-    else if (data.state === "winner-details") {
-        nextStep("waiting-result", "winner-details");
-        setTimeout(() => {
-            nextStep("winner-details", "waiting-players");
-        }, 10000);
-    }
-
   if (data.state === "waiting-start") {
     nextStep("waiting-players", "waiting-start");
   } else if (data.state === "player-container") {
@@ -37,17 +20,36 @@ nextStep('waiting-players', 'waiting-start');
     }, 10000);
   }
 
+  if (data.state === "waiting-start") {
+    nextStep("waiting-players", "waiting-start");
+  } else if (data.state === "player-container") {
+    nextStep("waiting-start", "player-container");
+  } else if (data.state === "waiting-result") {
+    nextStep("player-container", "waiting-result");
+  } else if (data.state === "winner-details") {
+    nextStep("waiting-result", "winner-details");
+    setTimeout(() => {
+      nextStep("winner-details", "waiting-players");
+    }, 10000);
+  }
 });
 
 socket.on("start_game", function (data) {
   console.log("Received player details:", data); // Debugging
 
-    // Check if player data is valid (not empty strings)
-    if (!data || !data.playerName.trim() || !data.category.trim() || !data.belt.trim() || !data.gym.trim() || !data.performance.trim()) {
-        console.error("Invalid player data received:", data);
-        // Stay on "waiting-start" screen if no player is registered
-        return false
-    }
+  // Check if player data is valid (not empty strings)
+  if (
+    !data ||
+    !data.playerName.trim() ||
+    !data.category.trim() ||
+    !data.belt.trim() ||
+    !data.gym.trim() ||
+    !data.performance.trim()
+  ) {
+    console.error("Invalid player data received:", data);
+    // Stay on "waiting-start" screen if no player is registered
+    return false;
+  }
 
   if (!data || !data.playerName) {
     console.error("Invalid player data received:", data);
@@ -56,7 +58,6 @@ socket.on("start_game", function (data) {
 
   // Show the player container
   nextStep("waiting-start", "player-container");
-
 
   // Update player information
   document.getElementById("player-name").innerText =
@@ -67,10 +68,11 @@ socket.on("start_game", function (data) {
   document.getElementById("player-gym").innerText = data.gym || "Unknown";
   document.getElementById("performance").innerText =
     data.performance || "Form 1";
+
+  document.getElementById("accuracy-score").innerText = '<div class="loader"></div>';
+  document.getElementById("presentation-score").innerText = '<div class="loader"></div>';
+  document.getElementById("total-score").innerText = '<div class="loader"></div>';
 });
-
-
-
 
 socket.on("update_score", function (data) {
   console.log("Received updated score:", data); // Debugging
@@ -82,41 +84,46 @@ socket.on("update_score", function (data) {
 
 // Function to move to the next step (same as in admin)
 function nextStep(currentId, nextId) {
-
-    // Hide all sections first (this makes sure there are no conflicting visible elements)
-    const sections = ['waiting-start', 'waiting-players', 'player-container', 'waiting-result', 'winner-details'];
-    sections.forEach((sectionId) => {
-        const element = document.getElementById(sectionId);
-        if (element) {
-            element.classList.add('hidden');  // Hide all sections
-        }
-    });
-
-    // Now show the next section
-    const nextElement = document.getElementById(nextId);
-    if (nextElement) {
-        nextElement.classList.remove('hidden');  // Show the next section
+  // Hide all sections first (this makes sure there are no conflicting visible elements)
+  const sections = [
+    "waiting-start",
+    "waiting-players",
+    "player-container",
+    "waiting-result",
+    "winner-details",
+  ];
+  sections.forEach((sectionId) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.classList.add("hidden"); // Hide all sections
     }
+  });
 
-    // If we're going to "waiting-players", clear the match results and winner details
-    if (nextId === "waiting-players") {
-        clearMatchResult();
-    }
+  // Now show the next section
+  const nextElement = document.getElementById(nextId);
+  if (nextElement) {
+    nextElement.classList.remove("hidden"); // Show the next section
+  }
+
+  // If we're going to "waiting-players", clear the match results and winner details
+  if (nextId === "waiting-players") {
+    clearMatchResult();
+  }
 }
 
 // Function to clear result and winner details (without hiding)
 function clearMatchResult() {
-    const waitingResult = document.getElementById("waiting-result");
-    const winnerDetails = document.getElementById("winner-details");
+  const waitingResult = document.getElementById("waiting-result");
+  const winnerDetails = document.getElementById("winner-details");
 
-    // Clear the content of "waiting-result" and "winner-details"
-    if (waitingResult) {
-        waitingResult.innerHTML = '';  // Clear the content of waiting-result
-    }
+  // Clear the content of "waiting-result" and "winner-details"
+  if (waitingResult) {
+    waitingResult.innerHTML = ""; // Clear the content of waiting-result
+  }
 
-    if (winnerDetails) {
-        winnerDetails.innerHTML = '';  // Clear the content of winner-details
-    }
+  if (winnerDetails) {
+    winnerDetails.innerHTML = ""; // Clear the content of winner-details
+  }
   document.getElementById(currentId).classList.add("hidden");
   document.getElementById(nextId).classList.remove("hidden");
 }
@@ -137,7 +144,7 @@ document.addEventListener("DOMContentLoaded", function () {
       !winnerDetails ||
       !winnerName ||
       !winnerCategory ||
-      !winnerBelt ||        
+      !winnerBelt ||
       !winnerGym ||
       !winnerScore
     ) {
@@ -147,29 +154,8 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
-
-        // Clear any previous content in the winner details section
-        winnerDetails.innerHTML = '';  // Ensure previous content is cleared
-
-        if (data.winner === "DRAW") {
-            console.log("[DEBUG] It's a draw!"); // 🔴 Debugging log
-            winnerDetails.innerHTML = `<h2>⚖️ It's a Draw!</h2>`;
-        } else {
-            console.log("[DEBUG] Updating winner details for:", data.winnerData.name); // 🔴 Debugging log
-            // Update winner details
-            winnerDetails.innerHTML = `
-                <h2>🏆 Winner!</h2>
-                <p><strong>Name:</strong> ${data.winnerData.name}</p>
-                <p><strong>Category:</strong> ${data.winnerData.category}</p>
-                <p><strong>Belt:</strong> ${data.winnerData.belt}</p>
-                <p><strong>Gym:</strong> ${data.winnerData.gym}</p>
-                <p><strong>Total Score:</strong> ${data.winnerData.totalScore}</p>
-            `;
-        }
-
-        nextStep("waiting-result", "winner-details");
-       
-    });
+    // Clear any previous content in the winner details section
+    winnerDetails.innerHTML = ""; // Ensure previous content is cleared
 
     if (data.winner === "DRAW") {
       console.log("[DEBUG] It's a draw!"); // 🔴 Debugging log
@@ -177,18 +163,35 @@ document.addEventListener("DOMContentLoaded", function () {
     } else {
       console.log("[DEBUG] Updating winner details for:", data.winnerData.name); // 🔴 Debugging log
       // Update winner details
-      winnerName.innerText = data.winnerData.name;
-      winnerCategory.innerText = data.winnerData.category;
-      winnerBelt.innerText = data.winnerData.belt;
-      winnerGym.innerText = data.winnerData.gym;
-      winnerScore.innerText = data.winnerData.totalScore;
+      winnerDetails.innerHTML = `
+                <h2>🏆 Winner!</h2>
+                <p><strong>Name:</strong> ${data.winnerData.name}</p>
+                <p><strong>Category:</strong> ${data.winnerData.category}</p>
+                <p><strong>Belt:</strong> ${data.winnerData.belt}</p>
+                <p><strong>Gym:</strong> ${data.winnerData.gym}</p>
+                <p><strong>Total Score:</strong> ${data.winnerData.totalScore}</p>
+            `;
     }
 
-    // Show the winner screen
-    winnerDetails.classList.remove("hidden");
+    nextStep("waiting-result", "winner-details");
   });
 
- 
+  if (data.winner === "DRAW") {
+    console.log("[DEBUG] It's a draw!"); // 🔴 Debugging log
+    winnerDetails.innerHTML = `<h2>⚖️ It's a Draw!</h2>`;
+  } else {
+    console.log("[DEBUG] Updating winner details for:", data.winnerData.name); // 🔴 Debugging log
+    // Update winner details
+    winnerName.innerText = data.winnerData.name;
+    winnerCategory.innerText = data.winnerData.category;
+    winnerBelt.innerText = data.winnerData.belt;
+    winnerGym.innerText = data.winnerData.gym;
+    winnerScore.innerText = data.winnerData.totalScore;
+  }
+
+  // Show the winner screen
+  winnerDetails.classList.remove("hidden");
+});
 
 // document.addEventListener("DOMContentLoaded", () => {
 //   const nextBtn = document.getElementById("next");
