@@ -1484,8 +1484,8 @@ const pointSystemList = [
     label: "Minor Deductions",
     descriptions: [
       "Crossing feet while moving",
-      "Incorrect hand position",
-      "Stepping out of boundary",
+      "Lost of balance",
+      "Lack of flexibility and grace.",
       "",
       "",
       "",
@@ -1501,7 +1501,7 @@ const pointSystemList = [
     label: "Major Deductions",
     descriptions: [
       "Falling down",
-      "Loss of balance",
+      "Eye focus or breathing is not corresponding to the movement of motion",
       "",
       "",
       "",
