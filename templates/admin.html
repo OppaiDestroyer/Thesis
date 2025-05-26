@@ -124,8 +124,24 @@
       </div>
 
       <div class="history-content" id="history-content">
-        <h2>Player History</h2>
-        <h3>Overview</h3>
+        <h2>Match History</h2>
+        <div class="overview-box">
+          <table id="matches-table" border="1">
+            <thead>
+              <tr>
+                <th>Loser</th>
+                <th>Loser Score</th>
+                <th>Game</th>
+                <th>Winner</th>
+                <th>Winner Score</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+
+        <h3>Match Details</h3>
         <div class="overview-box">
           <table id="overview-table">
             <thead>
@@ -145,6 +161,8 @@
         <div class="tournament-played-box">
           <span></span>
         </div>
+
+
 
         <h3>Registered Players</h3>
         <button id="print-button" class="player-btn">

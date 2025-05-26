@@ -479,14 +479,15 @@ h1 {
 .overview-box table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
   min-width: 600px;
 }
 
 .overview-box th,
 .overview-box td {
+  text-align: center;
   border: 1.5px solid var(--primary-color-light);
   padding: 8px;
-  text-align: left;
 }
 
 .overview-box th {

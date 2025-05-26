@@ -265,12 +265,31 @@ def save_game():
         game_number = data.get("game")
         players = data.get("players", [])
 
-        # Save both players to the database
+        if len(players) != 2:
+            return jsonify({"error": "Exactly two players must be provided."}), 400
+
+        timestamp = datetime.now()
+
+        # Save both players to status collection
         for player in players:
-            player["timestamp"] = datetime.now()
+            player["timestamp"] = timestamp
             db.status.insert_one(player)
 
-        return jsonify({"message": "Game results saved successfully!"}), 201
+        # Sort to determine winner and loser
+        sorted_players = sorted(players, key=lambda x: x.get("score", 0), reverse=True)
+        winner = sorted_players[0]
+        loser = sorted_players[1]
+
+        # Save match result to match collection
+        match_data = {
+            "game": game_number,
+            "winner": winner,
+            "loser": loser
+        }
+        db.match.insert_one(match_data)
+
+        return jsonify({"message": "Game and match results saved successfully!"}), 201
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -594,6 +613,33 @@ def get_status():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/matches')
+@login_required
+def get_matches():
+    """Fetch all match data (clean structure like /api/overview)."""
+    try:
+        matches = list(db.match.find({}))
+
+        for match in matches:
+            match.pop('_id', None)
+            if "winner" in match and isinstance(match["winner"], dict):
+                match["winner"].pop("_id", None)
+            if "loser" in match and isinstance(match["loser"], dict):
+                match["loser"].pop("_id", None)
+
+        return jsonify(matches)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    
+@app.route("/api/matches/clear", methods=["DELETE"])
+@login_required
+def clear_matches():
+    """Remove all match entries (after resetting or archiving)."""
+    try:
+        db.match.delete_many({})
+        return jsonify({"message": "All match entries have been removed."})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # DELETE all status entries
 @app.route("/api/overview/clear", methods=["DELETE"])

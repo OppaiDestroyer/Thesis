@@ -272,3 +272,30 @@ h1 {
     transform: rotate(360deg);
   }
 }
+
+/* Loader with text wrapper */
+.score-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  gap: 10px;
+}
+
+/* Adjust loader size to fit the column */
+.score-loading .loader {
+  border: 6px solid #f3f3f3;
+  border-top: 6px solid orange;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+/* Text under loader */
+.score-loading .waiting-text {
+  font-size: 1.2rem;
+  color: orange;
+  font-weight: bold;
+}

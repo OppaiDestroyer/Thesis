@@ -1034,7 +1034,9 @@ async function handleFormSubmit(event) {
     if (result.message) {
       alert("🎉 Player registered successfully!");
       document.querySelector("form[name='signup_form']").reset();
-      fetchPlayers(); // Refresh list
+      fetchPlayers();
+      fetchOverview();
+      fetchMatches();
     } else {
       alert("❌ Error: " + (result.error || "Unknown error"));
     }
@@ -1087,6 +1089,39 @@ document.addEventListener("DOMContentLoaded", function () {
       tableBody.innerHTML = `<tr><td colspan="8">Failed to load data</td></tr>`;
     }
   }
+  async function fetchMatches() {
+    const matchTableBody = document.querySelector("#matches-table tbody");
+    if (!matchTableBody) {
+      console.error("Error: #matches-table tbody not found.");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/matches");
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const matchData = await response.json();
+      matchTableBody.innerHTML = "";
+      matchData.forEach((match) => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+  <td style="background-color:rgb(112, 0, 0); text-align: center;">${match.winner.name}</td>
+  <td style="background-color:rgb(112, 0, 0); text-align: center;">${match.winner.totalScore}</td>
+  <td style="text-align: center;">${match.game}</td>
+  <td style="background-color:rgb(15, 104, 36); text-align: center;">${match.loser.name}</td>
+  <td style="background-color:rgb(15, 104, 36); text-align: center;">${match.loser.totalScore}</td>
+`;
+        matchTableBody.appendChild(row);
+      });
+
+      console.log("Match data loaded successfully.");
+    } catch (error) {
+      console.error("Error fetching match data:", error);
+      matchTableBody.innerHTML = `<tr><td colspan="6">Failed to load match data</td></tr>`;
+    }
+  }
 
   async function fetchOverview() {
     const overviewTableBody = document.querySelector("#overview-table tbody");
@@ -1128,6 +1163,7 @@ document.addEventListener("DOMContentLoaded", function () {
   window.fetchPlayers = fetchPlayers;
   fetchPlayers();
   fetchOverview();
+  fetchMatches();
 });
 
 //====================================================================================================
