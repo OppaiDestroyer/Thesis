@@ -1,3 +1,5 @@
+import eventlet
+eventlet.monkey_patch()  # Patch standard library for async support
 import socket
 import threading
 from flask import Flask, request, render_template, session, redirect, jsonify, make_response, url_for
@@ -24,8 +26,7 @@ import queue
 import json
 import requests
 import time
-import eventlet
-eventlet.monkey_patch()  # Patch standard library for async support
+
 
 app = Flask(__name__)
 app.secret_key = "7a396704-83f5-4598-8a7c-32e4bd58c676"
