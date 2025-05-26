@@ -63,13 +63,11 @@ document.addEventListener("DOMContentLoaded", function () {
   function unregisterPlayer(playerNumber) {
     delete registeredRFIDs[playerNumber];
 
-    document.getElementById(`player${playerNumber}-name`).innerText =
-      "Not Registered";
+    document.getElementById(`player${playerNumber}-name`).innerText = "";
     document.getElementById(`player${playerNumber}-category`).innerText = "";
     document.getElementById(`player${playerNumber}-belt`).innerText = "";
     document.getElementById(`player${playerNumber}-gym`).innerText = "";
-    document.querySelector(`.player${playerNumber}-detected`).innerText =
-      "Waiting for registration...";
+    document.querySelector(`.player${playerNumber}-detected`).innerText = "";
   }
 
   function updatePlayerInfo(playerNumber, player) {
@@ -78,13 +76,13 @@ document.addEventListener("DOMContentLoaded", function () {
     }`.trim();
 
     document.getElementById(`player${playerNumber}-name`).innerText =
-      fullName || "Not Registered";
+      fullName || "";
     document.getElementById(`player${playerNumber}-category`).innerText =
-      player.category || "Unknown";
+      player.category || "";
     document.getElementById(`player${playerNumber}-belt`).innerText =
-      player.belt || "Unknown";
+      player.belt || "";
     document.getElementById(`player${playerNumber}-gym`).innerText =
-      player.gym || "Unknown";
+      player.gym || "";
     document.querySelector(`.player${playerNumber}-detected`).innerText =
       "Registered";
   }

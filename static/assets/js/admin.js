@@ -980,7 +980,9 @@ async function handleFormSubmit(event) {
     if (result.message) {
       alert("🎉 Player registered successfully!");
       document.querySelector("form[name='signup_form']").reset();
-      fetchPlayers(); // Refresh list
+      fetchPlayers();
+      fetchOverview();
+      fetchMatches();
     } else {
       alert("❌ Error: " + (result.error || "Unknown error"));
     }

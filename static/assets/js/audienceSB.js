@@ -69,9 +69,16 @@ socket.on("start_game", function (data) {
   document.getElementById("performance").innerText =
     data.performance || "Form 1";
 
-  document.getElementById("accuracy-score").innerText = '<div class="loader"></div>';
-  document.getElementById("presentation-score").innerText = '<div class="loader"></div>';
-  document.getElementById("total-score").innerText = '<div class="loader"></div>';
+  const loadingHTML = `
+    <div class="score-loading">
+      <div class="loader"></div>
+      <div class="waiting-text">Waiting for result...</div>
+    </div>
+  `;
+
+  document.getElementById("accuracy-score").innerHTML = loadingHTML;
+  document.getElementById("presentation-score").innerHTML = loadingHTML;
+  document.getElementById("total-score").innerHTML = loadingHTML;
 });
 
 socket.on("update_score", function (data) {
