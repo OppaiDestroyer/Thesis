@@ -218,10 +218,8 @@ document.addEventListener("DOMContentLoaded", function () {
       steps: [
         "Start in the Ready or “Joon Bi” stance",
         "Turn left 90 degrees, left double knife hand middle block in back stance",
-        "Transition*",
         "Step forward, right fingertip thrust in front stance",
         "Turn right 180 degrees, right double knife hand middle block in back stance",
-        "Transition*",
         "Step forward, left fingertip thrust in front stance",
         "Turn left 90 degrees, left knife hand high block and right knife hand strike (both at same time) in front stance",
         "Right front kick",
@@ -343,11 +341,9 @@ document.addEventListener("DOMContentLoaded", function () {
         "Return to cat stance, Right inside block",
         "Turn left 90 degrees, move into left back stance, Left double knife hand low block",
         "Step forward into right back stance, Right double knife hand low block",
-        "Turn left 90 degrees, move into left cat stance",
-        "Right crossing palm block, reverse backfist to nose (with same right hand), left fist remains palm down under right elbow",
+        "Turn left 90 degrees, move into left cat stance and then do right crossing palm block, reverse backfist to nose (with same right hand), left fist remains palm down under right elbow",
         "Left fist remains palm down under right elbow",
-        "Turn right 180 degrees into right cat stance",
-        "Left crossing palm block, reverse backfist to nose (with same left hand), right fist remains palm down under left elbow",
+        "Turn right 180 degrees into right cat stance and Left crossing palm block, reverse backfist to nose (with same left hand), right fist remains palm down under left elbow",
         "Right fist remains palm down under left elbow",
         "Turn left 90 degrees, place left foot next to right foot, bring both hands into a chamber position on your belt with palms up, left hand grabs right fist at stomach level, slowly extend your arms outwards to chest level (attention stance or standing meditation)",
         "Step forward with left foot into left front stance, double scissor block (left arm does an outside block and right hand does a low block at same time)",
@@ -368,8 +364,7 @@ document.addEventListener("DOMContentLoaded", function () {
         "Move into right walking stance, right backfist to temple (chamber backfist above left shoulder)",
         "Open right fist, left crescent kick slapping palm of right hand with the sole of your left foot, land in a left horse stance",
         "Left elbow strike into open palm of your right hand",
-        "Stay in horse stance",
-        "Left single knife hand middle block",
+        "Stay in horse stance and left single knife hand middle block",
         "Step forward into right horse stance, right side punch, “Kihap!”",
         "When the Master says “Bah Ro”, turn and face the Master.",
       ],
@@ -678,6 +673,11 @@ document.addEventListener("DOMContentLoaded", function () {
   blackbeltBtn.textContent = "Blackbelt Forms";
   blackbeltBtn.classList.add("form-btn");
 
+  // Point System button
+  const pointSystemBtn = document.createElement("button");
+  pointSystemBtn.textContent = "Point Deductions";
+  pointSystemBtn.classList.add("form-btn");
+
   // Back button (hidden by default)
   const backBtn = document.createElement("button");
   backBtn.innerHTML = '<i class="fas fa-arrow-left"></i>'; // Icon instead of text
@@ -695,6 +695,7 @@ document.addEventListener("DOMContentLoaded", function () {
     backBtn.style.display = "none";
     taegukBtn.style.display = "inline-block";
     blackbeltBtn.style.display = "inline-block";
+    pointSystemBtn.style.display = "inline-block";
 
     // Trivia data as array of HTML strings
     const triviaList = [
@@ -840,6 +841,7 @@ document.addEventListener("DOMContentLoaded", function () {
     );
     taegukBtn.style.display = "none";
     blackbeltBtn.style.display = "none";
+    pointSystemBtn.style.display = "none";
     backBtn.style.display = "inline-block";
     displayContainer.innerHTML = "";
 
@@ -888,13 +890,65 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
+  // Show point system buttons
+  function showPointSystemButtons() {
+    // Remove previous sub-form buttons
+    Array.from(buttonsContainer.querySelectorAll(".sub-form-btn")).forEach(
+      (btn) => btn.remove()
+    );
+    taegukBtn.style.display = "none";
+    blackbeltBtn.style.display = "none";
+    pointSystemBtn.style.display = "none";
+    backBtn.style.display = "inline-block";
+    displayContainer.innerHTML = "";
+
+    pointSystemList.forEach((item) => {
+      const btn = document.createElement("button");
+      btn.textContent = item.label;
+      btn.classList.add("form-btn", "sub-form-btn");
+      btn.style.marginLeft = "10px";
+      btn.addEventListener("click", () => {
+        displayContainer.innerHTML = "";
+        const title = document.createElement("h3");
+        title.textContent = item.label;
+        displayContainer.appendChild(title);
+
+        const stepsHolder = document.createElement("div");
+        stepsHolder.id = "steps-holder";
+        stepsHolder.classList.add("steps-holder-container");
+        displayContainer.appendChild(stepsHolder);
+
+        for (let i = 0; i < item.descriptions.length; i++) {
+          const imgContainer = document.createElement("div");
+          imgContainer.classList.add("image-container");
+
+          const img = document.createElement("img");
+          img.src = `../static/assets/images/poomsae/${item.id}/${i + 1}.jpg`;
+          img.alt = item.descriptions[i];
+          img.classList.add("step-image");
+
+          const text = document.createElement("span");
+          text.textContent = item.descriptions[i];
+          text.classList.add("hover-text");
+
+          imgContainer.appendChild(img);
+          imgContainer.appendChild(text);
+          stepsHolder.appendChild(imgContainer);
+        }
+      });
+      buttonsContainer.appendChild(btn);
+    });
+  }
+
   // Add main buttons to container
   buttonsContainer.appendChild(taegukBtn);
   buttonsContainer.appendChild(blackbeltBtn);
+  buttonsContainer.appendChild(pointSystemBtn);
 
   // Main button click events
   taegukBtn.addEventListener("click", () => showForms(taegukForms));
   blackbeltBtn.addEventListener("click", () => showForms(blackbeltForms));
+  pointSystemBtn.addEventListener("click", showPointSystemButtons);
 
   // Back button event
   backBtn.addEventListener("click", showMainButtons);
@@ -1423,3 +1477,61 @@ document
       this.disabled = false;
     }
   });
+
+const pointSystemList = [
+  {
+    id: "minor_deductions",
+    label: "Minor Deductions",
+    descriptions: [
+      "Crossing feet while moving",
+      "Lost of balance",
+      "Lack of flexibility and grace.",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+    ],
+  },
+  {
+    id: "major_deductions",
+    label: "Major Deductions",
+    descriptions: [
+      "Falling down",
+      "Eye focus or breathing is not corresponding to the movement of motion",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      // ...add as many as you have images
+    ],
+  },
+  {
+    id: "gamjeum_deduction",
+    label: "Gamjeum Deduction",
+    descriptions: [
+      "Unsportsmanlike conduct",
+      "Leaving the area",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      // ...add as many as you have images
+    ],
+  },
+];
