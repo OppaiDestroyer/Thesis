@@ -1,4 +1,3 @@
-
 import socket
 import threading
 from flask import Flask, request, render_template, session, redirect, jsonify, make_response, url_for
@@ -25,12 +24,14 @@ import queue
 import json
 import requests
 import time
+import eventlet
+eventlet.monkey_patch()  # Patch standard library for async support
 
 app = Flask(__name__)
 app.secret_key = "7a396704-83f5-4598-8a7c-32e4bd58c676"
 app.config['SESSION_PERMANENT'] = False  # Ensure session expires on browser close
 app.register_blueprint(user_bp, url_prefix='/api')
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
 
 SERVER_IP = "rpi1.local"
 PORT = 10000
@@ -381,7 +382,7 @@ def rfid_and_winner_handler():
     while True:
         if not is_connected:
             print("[INFO] Waiting for connection to be established...")
-            time.sleep(1)
+            eventlet.sleep(1)
             continue
 
         try:
@@ -390,18 +391,19 @@ def rfid_and_winner_handler():
             print(f"[CONNECTED] Unified Connection to {SERVER_IP}:{PORT}")
             socketio.emit('connection_status', {'status': 'connected'})
 
-            # Start unified receive thread
-            receive_thread = threading.Thread(target=receive_data, args=(client_socket,), daemon=True)
-            receive_thread.start()
+            # # Start unified receive thread
+            # receive_thread = threading.Thread(target=receive_data, args=(client_socket,), daemon=True)
+            # receive_thread.start()
+            eventlet.spawn_n(receive_data, client_socket)
 
             while is_connected:
-                time.sleep(0.1)
+                eventlet.sleep(0.1) #time.sleep
 
         except (socket.error, ConnectionRefusedError) as e:
             print(f"[ERROR] Connection lost: {e}")
             socketio.emit('connection_status', {'status': 'disconnected'})
             is_connected = False
-            time.sleep(5)
+            eventlet.sleep(5)
 
 
 """ def receive_new_score_data(client_socket):
@@ -447,7 +449,7 @@ def start_connection():
 
     try:
         # Simulate connection logic
-        time.sleep(2)  # Simulate connection time
+        eventlet.sleep(2)  # Simulate connection time
         print("Connected to Raspberry Pi")
         
         # Emit connected status
@@ -860,5 +862,7 @@ def credentials_to_dict(credentials):
 
 
 if __name__ == '__main__':
+    import eventlet
+    import eventlet.wsgi
     socketio.start_background_task(target=rfid_and_winner_handler)
-    socketio.run(app, host="0.0.0.0", port=5000) 
+    socketio.run(app, host="0.0.0.0", port=5000)
