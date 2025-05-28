@@ -252,7 +252,6 @@ document.addEventListener("DOMContentLoaded", function () {
 //   const playerNextBtn = document.getElementById("nextC");
 //   const waitingResult = document.getElementById("waiting-result");
 //   const winnerDetails = document.getElementById("winner-details");
-
 //   if (playerNextBtn) {
 //     playerNextBtn.addEventListener("click", () => {
 //       // Hide player scoring screen

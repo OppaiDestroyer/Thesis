@@ -503,7 +503,6 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   //======================================start========================================
-
   document
     .querySelector(".player1-start")
     .addEventListener("click", function () {

@@ -1167,7 +1167,6 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 //====================================================================================================
-
 //FETCH FILES
 
 // Define fetchFiles globally
