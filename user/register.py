@@ -91,7 +91,6 @@ class Players:
             # Get form data
             players = {
                 "_id": uuid.uuid4().hex,
-                
                 "rfid": request.json.get("rfid", "").strip(), 
                 "firstname": request.json.get("firstname", "").strip(),
                 "middlename": request.json.get("middlename", "").strip(),
@@ -104,44 +103,32 @@ class Players:
                 "weight_category": request.json.get("weight_category", "").strip(),
             }
 
-            # Debugging: Print received data
-            print(f" Received Player Data: {players}")
+            # Debug: Print received data
+            print(f"Received Player Data: {players}")
 
             # Validate required fields
             missing_fields = [key for key, value in players.items() if not value]
             if missing_fields:
                 return jsonify({"error": f"Missing fields: {', '.join(missing_fields)}"}), 400
 
+            # Check for duplicate RFID
             if db.players.find_one({"rfid": players["rfid"]}):
-                print("❌ Duplicate RFID detected")  # Debugging
+                print("❌ Duplicate RFID detected")
                 return jsonify({"error": "RFID already exists"}), 400
 
-
-            # Generate full name for folder
-            full_name = f"{players['firstname']} {players['middlename']} {players['lastname']}".strip()
-
-            # Create Google Drive folder for the player
-            folder_id = create_drive_folder(full_name)
-
-            if not folder_id:
-                return jsonify({"error": "Failed to create player folder in Google Drive"}), 500
-
-            # Store folder ID in the database
-            players["folder_id"] = folder_id
-
-            # Insert into the database
+            # Insert player into the database
             result = db.players.insert_one(players)
 
             if result.acknowledged:
-                print(f" Player {full_name} registered successfully with folder ID {folder_id}")
-                return jsonify({"message": "Signup successful", "folder_id": folder_id}), 200
-            
-             
+                full_name = f"{players['firstname']} {players['middlename']} {players['lastname']}".strip()
+                print(f"✅ Player {full_name} registered successfully")
+                return jsonify({"message": "Signup successful"}), 200
+
             return jsonify({"error": "Signup failed"}), 500
 
         except Exception as e:
             import traceback
-            print(" ERROR in signup:", traceback.format_exc())  # Print full error
+            print("❌ ERROR in signup:", traceback.format_exc())
             return jsonify({"error": str(e)}), 500
 
     @staticmethod

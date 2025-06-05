@@ -47,16 +47,56 @@ document.addEventListener("DOMContentLoaded", function () {
       .catch((error) => console.error("Error fetching player:", error));
   });
 
+  let currentMatchNumber = null;
+
   function assignPlayer(playerNumber, rfid, player) {
     updatePlayerInfo(playerNumber, player);
     registeredRFIDs[playerNumber] = rfid;
     waitingForRFID = null;
+
     if (registeredRFIDs[1] && registeredRFIDs[2]) {
       waitingForRFID = null;
-      console.log("Both players registered. Moving to next step...");
+      console.log("Both players registered. Fetching new match number...");
 
-      // 🔴 Emit an event so the audience screen updates too
-      socket.emit("game_state", { state: "waiting-start" });
+      // Call the backend to start or get the next match number
+      fetch("/api/match/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error("Failed to start match");
+          }
+          return response.json();
+        })
+        .then((data) => {
+          currentMatchNumber = data.matchNumber || 1; // Default to 1 if undefined
+          console.log("Started Match", currentMatchNumber);
+
+          // 🟢 Emit only game state
+          socket.emit("game_state", {
+            state: "waiting-start",
+          });
+
+          // 🔵 Emit current match number separately
+          socket.emit("match_number", {
+            matchNumber: currentMatchNumber,
+          });
+        })
+        .catch((error) => {
+          console.error("Error starting new match:", error);
+
+          // Fallback to match 1
+          currentMatchNumber = 1;
+
+          socket.emit("game_state", {
+            state: "waiting-start",
+          });
+
+          socket.emit("match_number", {
+            matchNumber: currentMatchNumber,
+          });
+        });
     }
   }
 
@@ -204,15 +244,12 @@ document.addEventListener("DOMContentLoaded", function () {
         currentPerforming;
     }
   }
-
   function displayWinner() {
-    // Get necessary DOM elements for totals and submission status
     const player1TotalEl = document.getElementById("player1-total-score");
     const player2TotalEl = document.getElementById("player2-total-score");
     const player1SubmitEl = document.getElementById("player1-submit");
     const player2SubmitEl = document.getElementById("player2-submit");
 
-    // Check if elements exist
     if (
       !player1TotalEl ||
       !player2TotalEl ||
@@ -224,11 +261,9 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
-    // Parse totals
     const player1Total = parseFloat(player1TotalEl.innerText) || 0;
     const player2Total = parseFloat(player2TotalEl.innerText) || 0;
 
-    // Check submission status
     const player1Submitted = player1SubmitEl.value === "true";
     const player2Submitted = player2SubmitEl.value === "true";
 
@@ -237,7 +272,6 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
-    // Determine winner
     let winnerText = "";
     let winnerNumber = null;
     let winnerData = null;
@@ -260,17 +294,15 @@ document.addEventListener("DOMContentLoaded", function () {
       socket.emit("winner_displayed", { winner: "DRAW" });
     }
 
-    // Gather player details
     const player1Info = getPlayerInfo(1, winnerText, winnerNumber);
     const player2Info = getPlayerInfo(2, winnerText, winnerNumber);
 
-    // Post the game info to the server
+    // ✅ Use currentMatchNumber from database instead of local increment
     const gameData = {
-      game: gameNumber,
+      matchNumber: currentMatchNumber, // Ensure this is set from assignPlayer() logic
       players: [player1Info, player2Info],
     };
 
-    // Save game data in MongoDB
     fetch("/api/winners/save", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -284,13 +316,9 @@ document.addEventListener("DOMContentLoaded", function () {
         console.error("Error saving game data:", error);
       });
 
-    // Alert the winner
     alert(winnerText);
 
-    // Increment game number for the next match
-    gameNumber++;
-
-    // Reset the game
+    // No need to increment gameNumber manually
     resetGame();
   }
 

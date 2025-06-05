@@ -1091,10 +1091,20 @@ document.addEventListener("DOMContentLoaded", function () {
   }
   async function fetchMatches() {
     const matchTableBody = document.querySelector("#matches-table tbody");
+    const historyContent = document.querySelector("#history-content");
+
     if (!matchTableBody) {
       console.error("Error: #matches-table tbody not found.");
       return;
     }
+
+    if (!historyContent) {
+      console.error("Error: #history-content not found.");
+      return;
+    }
+
+    // Clear existing content (if needed beyond table rows)
+    matchTableBody.innerHTML = "";
 
     try {
       const response = await fetch("/api/matches");
@@ -1103,23 +1113,23 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       const matchData = await response.json();
-      matchTableBody.innerHTML = "";
+
       matchData.forEach((match) => {
         const row = document.createElement("tr");
         row.innerHTML = `
-  <td style="background-color:rgb(112, 0, 0); text-align: center;">${match.winner.name}</td>
-  <td style="background-color:rgb(112, 0, 0); text-align: center;">${match.winner.totalScore}</td>
-  <td style="text-align: center;">${match.game}</td>
-  <td style="background-color:rgb(15, 104, 36); text-align: center;">${match.loser.name}</td>
-  <td style="background-color:rgb(15, 104, 36); text-align: center;">${match.loser.totalScore}</td>
-`;
+          <td style="background-color:rgb(112, 0, 0); text-align: center;">${match.loser.name}</td>
+          <td style="background-color:rgb(112, 0, 0); text-align: center;">${match.loser.totalScore}</td>
+          <td style="text-align: center;">${match.loser.game}</td>
+          <td style="background-color:rgb(15, 104, 36); text-align: center;">${match.winner.name}</td>
+          <td style="background-color:rgb(15, 104, 36); text-align: center;">${match.winner.totalScore}</td>
+        `;
         matchTableBody.appendChild(row);
       });
 
-      console.log("Match data loaded successfully.");
+      console.log("Match history loaded successfully.");
     } catch (error) {
       console.error("Error fetching match data:", error);
-      matchTableBody.innerHTML = `<tr><td colspan="6">Failed to load match data</td></tr>`;
+      matchTableBody.innerHTML = `<tr><td colspan="5">Failed to load match data</td></tr>`;
     }
   }
 

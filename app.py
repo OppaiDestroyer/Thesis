@@ -279,6 +279,19 @@ def save_game():
         sorted_players = sorted(players, key=lambda x: x.get("score", 0), reverse=True)
         winner = sorted_players[0]
         loser = sorted_players[1]
+        
+        # Extract game number from winner or loser if not provided in the request
+        if not game_number:
+            game_number = winner.get("game") or loser.get("game")
+            
+        # Debugging logs
+        print(f"Game Number: {game_number}")
+        print(f"Winner: {winner}")
+        print(f"Loser: {loser}")
+            
+        # Ensure the game number is explicitly assigned to the winner and loser objects
+        winner["game"] = game_number
+        loser["game"] = game_number
 
         # Save match result to match collection
         match_data = {
@@ -531,8 +544,36 @@ def receive_data(client_socket):
             print(f"[RECEIVE ERROR] {e}")
             break
 
+@socketio.on("match_number", namespace="/")
+@login_required
+def handle_match_number(data):
+    match_number = data.get("matchNumber")
+    print(f"[SOCKET EVENT] Match number received: {match_number}")
 
+    # Send the match number to the RPi
+    send_match_number(match_number)
 
+    # Optional: Broadcast to all connected clients (e.g., for other screens)
+    emit("match_number", { "matchNumber": match_number }, broadcast=True)
+def send_match_number(match_number):
+    if client_socket:
+        try:
+            data = {"matchNumber": match_number}
+            json_data = json.dumps(data)
+            client_socket.sendall(json_data.encode("utf-8"))
+            print(f"[TO RPI] Sent match number: {json_data}")
+        except Exception as e:
+            print(f"[SEND ERROR] Failed to send match number: {e}")
+
+# In-memory match counter (you can replace this with a DB)
+current_match_number = 0
+
+@app.route("/api/match/start", methods=["POST"])
+def start_new_match():
+    global current_match_number
+    current_match_number += 1
+    print(f"[INFO] Match started. Current match number: {current_match_number}")
+    return jsonify({"matchNumber": current_match_number})
 
 ### --- 🔥 SOCKET EVENT HANDLING --- ###
 @socketio.on("winner_displayed", namespace="/")
